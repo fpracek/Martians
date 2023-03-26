@@ -10,7 +10,7 @@ It's my first assembly MSX game.
 
 The game format is ROM.
 
-it's for MSX2 computers only because it use Screen 0 text mode with 80 columns.
+It's for MSX2 computers only because it use Screen 0 text mode with 80 columns.
 
 I will appreace each suggestion to write a code more clean.
 
