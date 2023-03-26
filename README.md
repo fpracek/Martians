@@ -1,5 +1,5 @@
 # Martians
-MSX MARTIAN WAR GAME
+MSX2 MARTIAN WAR GAME
 
 This game is a remake of very old Martian War for WANG 2200 Computers by Ralf Berger in 1980.
 
@@ -9,6 +9,8 @@ https://www.mobygames.com/game/176436/martian-war/
 It's my first assembly MSX game.
 
 The game format is ROM.
+
+it's for MSX2 computers only because it use Screen 0 text mode with 80 columns.
 
 I will appreace each suggestion to write a code more clean.
 
