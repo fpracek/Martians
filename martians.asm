@@ -1,5060 +1,3113 @@
-; *** BIOS CALLS ***
-CHGMOD: 			equ 005fh   ; BIOS routine used to initialize the screen
-CHPUT:				equ	00a2h	; Address of character output routine of BIOS
-EXPTBL:				equ	0FCC1h  ; Extended slot flags table (4 bytes)
-RDSLT:				equ	000Ch	; Read slot routine
-CHGET:				equ 009fh	; Get character from keyboard buffer (wait)
-CLS:				equ 00c3h	; Clear screen
-DCOMPR:				equ 146ah	; Compare 16bit values
-RDVRM:				equ 004ah	; Read VRAM
-WRTVRM:				equ 004dh   ; Write WRAM
+; ***************************
+; ****** MARTIAN WAR 2 ******
+; ***************************
+;
+;     ------------------
+;     Fausto Pracek 2023
+;     ------------------
 
-; *** CONSTANTS ***
-LINL40: 			equ #F3ae   ; Screen 0 screen width
-VDP_DW:				equ	0007h	; VDP data write port
-VDP_DR:				equ	0006h	; VDP data read port
-REG3SAV: 			equ 0F3E2h	; VDP reg 3
-REG4SAV: 			equ 0F3E3h	; VDP reg 4
-REG9SAV:			equ	0FFE8h  ; VDP reg 9
-REG10SAV:			equ	0FFE9h  ; VDP reg 10
-CLIKSW:   			equ 0f3dbh	; Key Press Click Switch: 0=Off 1=On
-KEYS:				equ	0fbe5h	; NEWKEY memory area 0xFBE5-0xFBEF 
-OLDKEY:				equ #fbda
-NEWKEY:				equ #fbe5
 
-MartianMissile:		equ	91
-RunningHuman1:		equ 128
-RunningHuman2:		equ 137
-RunningHuman3:		equ 146
-RunningHuman4:		equ 155
-RunningHuman5:		equ 164
-MartianShip1a:		equ 173
-MartianShip1b:		equ 181
-MartianShip2a:		equ 214
-MartianShip2b:		equ 222
-MartianShip3a:		equ 230
-MartianShip3b:		equ 238
-HumanMissile:		equ 189
-HumanShip:			equ 191
-StaticHuman:		equ 205
-BrdBottomLeft:  	equ 203
-BrdHorizontal:  	equ 201
-BrdVertical:    	equ 200
-BrdTopRight:    	equ 202
-BrdTopLeft:     	equ 199
-BrdBottomRight: 	equ 204
-Explosion:			equ 246
+; --- BIOS CALLS ---
+CHGMOD: 			equ #005f   					; Used to initialize the screen
+RDSLT:				equ	#000c						; Read slot routine
+WRTVRM:				equ #004d   					; Write value into WRAM
+VDP_DW:				equ	#0007						; VDP data write port
+VDP_DR:				equ	#0006						; VDP data read port
+LDIRVM:				equ #005c						; Write a block of memory to VRAM memory
+SETWRT:				equ #0053						; Enable WRAM to write
+RDVRM:				equ 004ah						; Read VRAM
 
-; *** INIT ROM ***
+; --- BIOS CONSTANT ---
+LINL40: 			equ #f3ae   					; Screen 0 screen width
+REG2SAV:			equ #f3e1						; VDP reg #2
+REG4SAV: 			equ #f3e3						; VDP reg #4
+REG9SAV:			equ	#ffe8 						; VDP reg #9
+NEWKEY:				equ #fbe5						; Pressed key
+CLIKSW:   			equ #f3dB						; Key Press Click Switch: 0=Off 1=On
+HTIMI:      		equ #fd9f      					; Memory adress of hook that's invoked after VBLANK	
+KEYS:				equ	#fbe5						; NEWKEY memory area 0xFBE5-0xFBEF
+
+
+; --- INIT ROM ---
 	org #4000
-	db "AB"					; ID for auto-executable ROM
-	dw StartProgram			; Main program execution address.
-	db 00,00,00,00,00,00 	; unused
-
-
-; *** PROGRAM START ***
-StartProgram:	
-
-    ; HL points too allocated space  
-	call 	InitScreen								; Init screen 0, width 80, height 26.5
-	call  	DefineCustomCharacters					; Load custom characters into VRAM
-
-show_presentation:
-
-	ld		hl, Msg_MartianWar
-	ld		c, 30
-	ld		b, 0
-	call    PrintStringAtPosition
-	ld		hl, Msg_OnlyOneWapon
-	ld		c, 5
-	ld		b, 2
-	call    PrintStringAtPosition
-	ld		hl, Msg_Keys
-	ld		c, 5
-	ld		b, 4
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Key4
-	ld		c, 20
-	ld		b, 6
-	call    PrintStringAtPosition
-	ld		hl, Msg_Key5
-	ld		c, 20
-	ld		b, 7
-	call    PrintStringAtPosition
-	ld		hl, Msg_Key6
-	ld		c, 20
-	ld		b, 8
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Key8
-	ld		c, 20
-	ld		b, 9
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Ships
-	ld		c, 5
-	ld		b, 11
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Bombs
-	ld		c, 5
-	ld		b, 12
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Mission
-	ld		c, 5
-	ld		b, 14
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Destroy
-	ld		c, 5
-	ld		b, 15
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Population
-	ld		c, 5
-	ld		b, 16
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Repaired
-	ld		c, 5
-	ld		b, 18
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Unusable
-	ld		c, 5
-	ld		b, 19
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Enter
-	ld		c, 5
-	ld		b, 21
-	call    PrintStringAtPosition
-
-	
-
-
-hit_enter:
-	ld		a,(NEWKEY+7)	;space
-	bit		7,a
-	jp		z,enterpressed
-	jp		hit_enter
-	
-enterpressed:
-
-
-
-	call    ClearScreen
-
-	ld		hl, Msg_MartianWar
-	ld		c, 30
-	ld		b, 0
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Levels
-	ld		c, 5
-	ld		b, 7
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Level1
-	ld		c, 5
-	ld		b, 9
-	call    PrintStringAtPosition
-
-	ld     hl, Msg_Level2
-	ld		c, 5
-	ld		b, 10
-	call    PrintStringAtPosition
-
-	ld      hl, Msg_Level3
-	ld		c, 5
-	ld		b, 11
-	call    PrintStringAtPosition
-
-level_selection:
-	ld		a,(NEWKEY+0)	;space
-	bit		1,a
-	jp		z,level1_selected
-	bit     2,a
-	jp		z,level2_selected
-	bit     3,a
-	jp		z,level3_selected
-	jp		level_selection
-level1_selected:
-	ld		c, 49
-	ld		b, 7
-	ld		d, 49
-	call	PrintCharacterAtPosition
-	ld		hl, SelectedLevel
-	ld		(hl), 1
-	jp		sound_selection
-level2_selected:
-	ld		c, 49
-	ld		b, 7
-	ld		d, 50
-	call	PrintCharacterAtPosition
-	ld		hl, SelectedLevel
-	ld		(hl), 2
-	jp		sound_selection
-level3_selected:
-	ld		c, 49
-	ld		b, 7
-	ld		d, 51
-	call	PrintCharacterAtPosition
-	ld		hl, SelectedLevel
-	ld		(hl), 3
-
-sound_selection:
-	ld      hl, Msg_SoundEffects
-	ld		c, 5
-	ld		b, 15
-	call    PrintStringAtPosition
-
-	ld		hl, SoundYN
-	ld		(hl),0
-
-sound_yn:
-	ld		a,(NEWKEY+5)	
-	bit		6,a
-	jp		z,sound_y
-	ld		a,(NEWKEY+4)	
-	bit     3,a
-	jp		z,sound_n
-	jp		sound_yn
-sound_y:
-	ld		hl, SoundYN
-	ld		(hl),1
-sound_n:
-	call	CLS
-
-border_drawing:
-	
-
-	ld		hl, Counter
-	ld		(hl),63
-border_drawing_upper_line:
-	ld		hl, Counter
-	ld    	c, (hl)
-	ld    	b, 0
-	ld    	d, BrdHorizontal
-	call  PrintCharacterAtPosition
-	
-	ld		hl, Counter
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	cp		0
-	jp		z, border_drawing_bottom_line
-	jp		border_drawing_upper_line
-
-border_drawing_bottom_line:
-	ld		hl, Counter
-	ld		(hl),78
-border_drawing_bottom_line_loop:
-	ld		hl, Counter
-	ld    	c, (hl)
-	ld    	b, 26
-	ld    	d, BrdHorizontal
-	call  PrintCharacterAtPosition
-	ld		hl, Counter
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	cp		0
-	jp		z, border_drawing_right_line
-	jp		border_drawing_bottom_line_loop
-border_drawing_right_line:
-	ld		hl, Counter
-	ld		(hl),25
-border_drawing_right_line_loop:
-	ld		hl, Counter
-	ld    	c, 78
-	ld    	b, (hl)
-	ld    	d, BrdVertical
-	call  PrintCharacterAtPosition
-	ld		hl, Counter
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	cp		3
-	jp		z, border_drawing_left_line
-	jp		border_drawing_right_line_loop
-border_drawing_left_line:
-	ld		hl, Counter
-	ld		(hl),25
-border_drawing_left_line_loop:
-	ld		hl, Counter
-	ld    	c, 0
-	ld    	b, (hl)
-	ld    	d, BrdVertical
-	call  PrintCharacterAtPosition
-	ld		hl, Counter
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	cp		0
-	jp		z, border_drawing_right_top
-	jp		border_drawing_left_line_loop
-
-
-border_drawing_right_top:
-	ld		hl, Counter
-	ld		(hl),78
-border_drawing_right_top_loop:
-	ld		hl, Counter
-	ld    	c,  (hl)
-	ld    	b, 3
-	ld    	d, BrdHorizontal
-	call  PrintCharacterAtPosition
-	ld		hl, Counter
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	cp		62
-	jp		z, border_drawing_single_characters
-	jp		border_drawing_right_top_loop
-
-border_drawing_single_characters:
-	ld    	b, 0
-	ld    	c, 0
-	ld    	d, BrdTopLeft
-	call  PrintCharacterAtPosition
-
-	call	DrawInfoBox
-
-	ld    	b, 26
-	ld    	c, 0
-	ld    	d, BrdBottomLeft
-	call  PrintCharacterAtPosition
-
-	ld    	b, 26
-	ld    	c, 78
-	ld    	d, BrdBottomRight
-	call  PrintCharacterAtPosition
-
-	ld    	b, 3
-	ld    	c, 78
-	ld    	d, BrdTopRight
-	call  PrintCharacterAtPosition
-
-	ld      hl, Msg_MartianWar
-	ld		c, 66
-	ld		b, 0
-	call    PrintStringAtPosition
-
-	ld      hl, Msg_Humans
-	ld		c, 65
-	ld		b, 1
-	call    PrintStringAtPosition
-
-draw_info:
-	ld      hl, Msg_Martians
-	ld		c, 65
-	ld		b, 2
-	call    PrintStringAtPosition
-
-
-
-init_variables:
-	ld		hl, HumanExplosionFlag
-	ld		(hl),0
-
-	ld		hl, HumanShipCurrentPosition
-	ld		(hl), 38
-	ld		hl,0
-	ld		(HumanShipStopTime),hl
-	ld		hl, HumanShipVisible
-	ld		(hl),1
-	call	ResetMartiansMissilesPositions
-	call	SetLevelParameters
-	ld		hl, MartiansShipsSpeed
-	ld		(hl),0
-	ld		hl, MartiansMissilesSpeed
-	ld		(hl),0
-	ld		hl, Humans
-	ld		(hl), 19
-	call 	RefreshHumansCounters
-	call 	RefreshMartiansCounters
-	call	ResetFiredMissilesPositions
-	call	ResetMartiansPositions
-
-
-
-humans_showing:
-
-	ld		hl, HumanRunningCounter
-	ld		(hl), 19								; Set number of humans to display
-	ld		hl, RunningHumanFromRightStopPosition 	; Set stop position for human running from right
-	ld		(hl), 44
-	ld		hl, RunningHumanFromLeftStopPosition 	; Set stop position for human running from left
-	ld		(hl), 40
-
-single_human_running:
-	ld		hl, HumanRunningCounter
-	ld		a, (hl)
-	cp		0
-	jp		z, show_human_ship
-
-	
-	and 	1           ;
-	jp		nz, odd_human     
-									; show human from right
-
-	ld    	hl, CounterFromRight
-	ld    	(hl),76	
-clearCurrentRightHumanPosition:
-	ld    	hl, RunningHumanFromRightCurrentImage	; 
-	ld    	(hl), 4
-move_right_human_loop: 	 	
-	ld		hl, RunningHumanFromRightStopPosition
- 	ld   	b,(hl) 
-	ld    	hl, CounterFromRight
- 	ld   	a,(hl) 	  		
- 	cp   	b						; check if human is in your final destination
- 	jp   	z, runningHumanFromRightArrived 
-	ld   	d,a
-	ld 		hl, RunningHumanFromRightCurrentImage
-	ld      a, (hl)
-	ld      e, a
-	ld 		h, 9
-	call 	Mult8
-	ld   	a, 128
-	add  	a, l
-	ld   	e, a
-	ld 		hl, CounterFromRight
- 	ld   	a,(hl) 	
-	ld		d, a
-	call 	MoveHumanFromRight	
-	ld   	bc,$0500
-	call 	Delay
-	ld    	hl, CounterFromRight
-	ld		a,(hl)
- 	dec  	a
-	ld 		(CounterFromRight),a
-	ld 		hl, RunningHumanFromRightCurrentImage
-	ld 		a, (hl)
-	dec  	a
-	ld 		(hl),a
-	cp   	0
-	jp   	z, clearCurrentRightHumanPosition
- 	jp   	move_right_human_loop	
-runningHumanFromRightArrived:	 
-	ld		hl, HumanRunningCounter					
-	ld		a, (hl)
-	dec		a
-	ld		(hl), a
-	ld		hl, RunningHumanFromRightStopPosition 	; Set new stop position from running human from right
-	ld		e,StaticHuman
-	ld		d, (hl)
-	call 	MoveHumanFromRight	
-	ld		hl, RunningHumanFromRightStopPosition 	; Set new stop position from running human from right
-	ld		a, (hl)
-	inc		a
-	inc		a
-	inc		a
-	inc		a
-	ld		(hl), a
-	jp		single_human_running 	          
-
-runningHumanFromLeftArrived:	 
-	ld		hl, HumanRunningCounter					
-	ld		a, (hl)
-	dec		a
-	ld		(hl), a
-	ld		hl, RunningHumanFromLeftStopPosition 	; Set new stop position from running human from right
-	ld		e,StaticHuman
-	ld		d, (hl)
-	call 	MoveHumanFromRight	
-	ld		hl, RunningHumanFromLeftStopPosition 	; Set new stop position from running human from right
-	ld		a, (hl)
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	ld		(hl), a
-	jp		single_human_running 	
-
-odd_human:							; show human from left
-	ld    	hl, CounterFromLeft
-	ld    	(hl),2	
-clearCurrentLeftHumanPosition:
-	ld    	hl, RunningHumanFromLeftCurrentImage	; 
-	ld    	(hl), 4
-move_left_human_loop: 	 	
-	ld		hl, RunningHumanFromLeftStopPosition
- 	ld   	b,(hl) 
-	ld    	hl, CounterFromLeft
- 	ld   	a,(hl) 	  		
- 	cp   	b						; check if human is in your final destination
- 	jp   	z, runningHumanFromLeftArrived 
-	ld   	d,a
-	ld 		hl, RunningHumanFromLeftCurrentImage
-	ld      a, (hl)
-	ld      e, a
-	ld 		h, 9
-	call 	Mult8
-	ld   	a, 128
-	add  	a, l
-	ld   	e, a
-	ld 		hl, CounterFromLeft
- 	ld   	a,(hl) 	
-	ld		d, a
-	call 	MoveHumanFromLeft	
-	ld   	bc,$0500
-	call 	Delay
-	ld    	hl, CounterFromLeft
-	ld		a,(hl)
- 	inc  	a
-	ld 		(CounterFromLeft),a
-	ld 		hl, RunningHumanFromLeftCurrentImage
-	ld 		a, (hl)
-	dec  	a
-	ld 		(hl),a
-	cp   	0
-	jp   	z, clearCurrentLeftHumanPosition
- 	jp   	move_left_human_loop
-
-end_check_odd_even_human:
-	ld		hl, HumanRunningCounter	
-	ld		a, (hl)
-	dec		a
-	ld		(hl), a					; pass to next human to show
-	jp		single_human_running
-
-
-
-
-
-
-
-
-show_human_ship:
-	ld		hl, HumanShipMovingDirection
-	ld		(hl), 0
-	ld		hl, HumanShipCurrentPosition
-	ld		(hl), 38
-	call 	PrintHumanShip
-main_loop_init_variables:
-	ld		hl, 255
-	ld		(MissilesRefreshPositionTime),hl
-
-
-
-main_loop:
-
-	call    ScreenRefresh
-	ld		hl,Martians
-	ld		a,(hl)
-	cp		0
-	jp		z, GameOver
-	ld		a,(NEWKEY+1)	;key '8'
-	bit		0,a
-	jp		z, start_human_ship_fire
-
-	ld		a,(NEWKEY+0)	;key '4'
-	bit		4,a
-	jp		z, start_move_human_ship_to_left
-
-	ld		a,(NEWKEY+0)	; key '6'
-	bit		6,a
-	jp		z, start_move_human_ship_to_right
-
-	ld		a,(NEWKEY+0)	; key '5'
-	bit		5,a
-	jp		z, stop_human_ship
-
-	ld		hl,HumanShipMovingDirection
-	ld		a, (hl)
-	cp		1
-	jp		z, move_human_ship_to_right
-
-	ld		hl,HumanShipMovingDirection
-	ld		a, (hl)
-	cp		2
-	jp		z, move_human_ship_to_left
-
-
-	jp main_loop
-
-; *** CALLS ***
-GameOver:
-	ld		hl, Martians
-	ld		a,(hl)
-	cp		0
-	jp		nz, GameOver_MartiansWin
-
-	call	GameOver_HumansWin_Message
-
-	jp		hit_enter
-
-GameOver_MartiansWin:
-
-	call	GameOver_MartiansWin_Message
-
-	;call	GenerateRandomNumber
-	;ld		e, a
-	;cp		2
-	;jp		z, GameOver_Ok_Y
-	;cp		4
-	;jp		z, GameOver_Ok_Y
-	;cp		6
-	;jp		z, GameOver_Ok_Y
-	;cp		8
-	;jp		z, GameOver_Ok_Y
-	;cp		10
-	;jp		z, GameOver_Ok_Y
-	;cp		12
-	;jp		z, GameOver_Ok_Y
-	;cp		14
-	;jp		z, GameOver_Ok_Y
-	;cp		16
-	;jp		z, GameOver_Ok_Y
-	;cp		18
-	;jp		z, GameOver_Ok_Y
-	;cp		20
-	;jp		z, GameOver_Ok_Y
-	;cp		22
-	;jp		z, GameOver_Ok_Y
-	;cp		24
-	;jp		z, GameOver_Ok_Y
-	;cp		26
-	;jp		z, GameOver_Ok_Y
-	
-	jp		hit_enter		
-	
-GameOver_Ok_Y:
-	call	GenerateRandomNumber
-	cp		1
-	jp		z, GameOver_Ok_X
-	cp		2
-	jp		z, GameOver_Ok_X
-	cp		3
-	jp		z, GameOver_Ok_X
-	cp		4
-	jp		z, GameOver_Ok_X
-	cp		5
-	jp		z, GameOver_Ok_X
-	cp		6
-	jp		z, GameOver_Ok_X
-	cp		7
-	jp		z, GameOver_Ok_X
-	cp		8
-	jp		z, GameOver_Ok_X
-	cp		9
-	jp		z, GameOver_Ok_X
-	cp		10
-	jp		z, GameOver_Ok_X
-	cp		11
-	jp		z, GameOver_Ok_X
-	cp		12
-	jp		z, GameOver_Ok_X
-	cp		13
-	jp		z, GameOver_Ok_X
-	cp		14
-	jp		z, GameOver_Ok_X
-	cp		15
-	jp		z, GameOver_Ok_X
-	cp		16
-	jp		z, GameOver_Ok_X
-	cp		17
-	jp		z, GameOver_Ok_X
-	cp		18
-	jp		z, GameOver_Ok_X
-	cp		19
-	jp		z, GameOver_Ok_X
-	cp		20
-	jp		z, GameOver_Ok_X
-	cp		21
-	jp		z, GameOver_Ok_X
-	cp		22
-	jp		z, GameOver_Ok_X
-	cp		23
-	jp		z, GameOver_Ok_X
-	cp		24
-	jp		z, GameOver_Ok_X
-	cp		25
-	jp		z, GameOver_Ok_X
-	cp		26
-	jp		z, GameOver_Ok_X
-	cp		27
-	jp		z, GameOver_Ok_X
-	cp		28
-	jp		z, GameOver_Ok_X
-	cp		29
-	jp		z, GameOver_Ok_X
-	cp		30
-	jp		z, GameOver_Ok_X
-	cp		31
-	jp		z, GameOver_Ok_X
-	cp		32
-	jp		z, GameOver_Ok_X
-	cp		33
-	jp		z, GameOver_Ok_X
-	cp		34
-	jp		z, GameOver_Ok_X
-	cp		35
-	jp		z, GameOver_Ok_X
-	cp		36
-	jp		z, GameOver_Ok_X
-	cp		37
-	jp		z, GameOver_Ok_X
-	cp		38
-	jp		z, GameOver_Ok_X
-	cp		39
-	jp		z, GameOver_Ok_X
-	cp		40
-	jp		z, GameOver_Ok_X
-	cp		41
-	jp		z, GameOver_Ok_X
-	cp		42
-	jp		z, GameOver_Ok_X
-	cp		43
-	jp		z, GameOver_Ok_X
-	cp		44
-	jp		z, GameOver_Ok_X
-	cp		45
-	jp		z, GameOver_Ok_X
-	cp		46
-	jp		z, GameOver_Ok_X
-	cp		47
-	jp		z, GameOver_Ok_X
-	cp		48
-	jp		z, GameOver_Ok_X
-	cp		49
-	jp		z, GameOver_Ok_X
-	cp		50
-	jp		z, GameOver_Ok_X
-	cp		51
-	jp		z, GameOver_Ok_X
-	cp		52
-	jp		z, GameOver_Ok_X
-	cp		53
-	jp		z, GameOver_Ok_X
-	cp		54
-	jp		z, GameOver_Ok_X
-	cp		55
-	jp		z, GameOver_Ok_X
-	cp		56
-	jp		z, GameOver_Ok_X
-	cp		57
-	jp		z, GameOver_Ok_X
-	cp		58
-	jp		z, GameOver_Ok_X
-
-	ld		d, a
-	ld		a,e
-	cp		59
-	jp		c, GameOver_MartiansWin
-	ld		a, d
-	cp		59
-	jp		z, GameOver_Ok_X
-	cp		60
-	jp		z, GameOver_Ok_X
-	cp		61
-	jp		z, GameOver_Ok_X
-	cp		62
-	jp		z, GameOver_Ok_X
-	cp		63
-	jp		z, GameOver_Ok_X
-	cp		64
-	jp		z, GameOver_Ok_X
-	cp		65
-	jp		z, GameOver_Ok_X
-	cp		66
-	jp		z, GameOver_Ok_X
-	cp		67
-	jp		z, GameOver_Ok_X
-	cp		68
-	jp		z, GameOver_Ok_X
-	cp		69
-	jp		z, GameOver_Ok_X
-	cp		70
-	jp		z, GameOver_Ok_X
-	cp		71
-	jp		z, GameOver_Ok_X
-	cp		72
-	jp		z, GameOver_Ok_X
-	cp		73
-	jp		z, GameOver_Ok_X
-	cp		74
-	jp		z, GameOver_Ok_X
-
-	jp		GameOver_MartiansWin
-
-GameOver_Ok_X:
-	ld		c, a
-	ld		b, e
-
-	call	GenerateRandomNumber	
-	cp		255
-	call	c, MartianShipsManagment_martian1
-	cp		150
-	call	c, MartianShipsManagment_martian2
-	cp		80
-	call	c, MartianShipsManagment_martian3
-
-	add		d, 8
-
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	dec		c
-	dec		c
-	dec		c
-	inc		b
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	ld		bc, 0fffh
-	call	Delay
-	ld		bc, 0fffh
-	call	Delay
-	ld		bc, 0fffh
-	call	Delay
-
-	jp		GameOver_MartiansWin
-GameOver_MartiansWin_Message:
-
-	call	ClearHumans
-
-	ld		hl, Msg_Sorry
-	ld		c, 34
-	ld		b, 21
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_Martians_Win
-	ld		c, 10
-	ld		b, 23
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_HintPlayAgain
-	ld		c, 27
-	ld		b, 25
-	call    PrintStringAtPosition
-
-	ret
-GameOver_HumansWin_Message:
-	call	RemoveHumanShip
-
-	call	ClearHumans
-
-	ld		hl, Msg_Congratulation
-	ld		c, 32
-	ld		b, 21
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_YouHaveSaved
-	ld		c, 20
-	ld		b, 23
-	call    PrintStringAtPosition
-
-	ld		hl, Msg_HintPlayAgain
-	ld		c, 27
-	ld		b, 25
-	call    PrintStringAtPosition
-
-	ret
-PrintExplosion:
-	; INPUT: C=Position X, Y=Position Y
-	push	de
-
-
-	push 	bc
-	ld		d, Explosion
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		d
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	
-
-	push 	bc
-	inc		d
-	inc		b
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		d
-	inc		b
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	ld		hl, HumanExplosionFlag
-	ld		a,(hl)
-	call	z, PrintExplosion_expanded
-
-	pop		de
-	ret
-PrintExplosion_expanded:
-	push 	bc
-	inc		d
-	inc		c
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		d
-	inc		b
-	inc		c
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	ret
-ClearExplosion:
-	; INPUT: C=Position X, Y=Position Y
-	push	de
-
-	push 	bc
-	ld		d, 32
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		b
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		b
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-
-	ld		hl, HumanExplosionFlag
-	ld		a,(hl)
-	call	z, ClearExplosion_expanded
-
-	pop		de
-	ret
-ClearExplosion_expanded:
-
-	push 	bc
-	inc		c
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	push 	bc
-	inc		b
-	inc		c
-	inc		c
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	ret
-CheckHumanShipMissileOnTarget:
-	; INPUT: D=MissileArrayPosition
-	ld		hl, HumanMissileArrayPosition
-	ld		(hl), d
-	push	bc
-	push	de
-	call	GetMissileLocationByArrayPosition	
-	ld		a, b				
-	cp		0
-	ret		z
-	push	bc
-	push	de
-	ld		d, HumanMissile
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	ld		d, HumanMissile
-	inc		d
-	inc		c
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-
-
-	ld		a, -1
-	ld		d, a
-CheckHumanShipMissileOnTarget_search_martian_missile_loop:
-	ld		a,d
-	inc		a
-	cp		100
-	ld		d,a
-	jp		z, CheckHumanShipMissileOnTarget_continue
-	ld		hl, MartianMissilesPosX
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	cp		c
-
-	jp		nz, CheckHumanShipMissileOnTarget_search_martian_missile_loop
-
-	ld		hl, MartianMissilesPosY
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	cp		b
-	jp		nz, CheckHumanShipMissileOnTarget_search_martian_missile_loop
-
-	push	bc
-	ld		hl, MartianMissilesPosX
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		c,(hl)
-	ld		(hl),0
-
-	ld		hl, MartianMissilesPosY
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		b,(hl)
-	ld		(hl),0
-
-	push	bc
-	push	de
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-
-	pop		bc
-	jp		MissilesCrash
-
-
-CheckHumanShipMissileOnTarget_continue:	
-	ld		a, b
-	cp		2
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship
-	cp		4
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship
-	cp		6
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship
-	cp		8
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship
-	cp		10
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship
-	pop		de
-	pop		bc
-	ld		a, 0
-	ret
-CheckHumanShipMissileOnTarget_search_martian_ship:
-	ld		a, 0
-CheckHumanShipMissileOnTarget_search_martian_ship_loop:
-	ld		d, a
-	cp		4
-	jp		z, CheckHumanShipMissileOnTarget_search_martian_ship_exit
-	ld		hl, MartiansShipsPositionY
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	ld		hl, MartianShipToRemoveY
-	ld		(hl),a
-	cp		b
-	jp		nz, CheckHumanShipMissileOnTarget_search_martian_ship_checkx
-	ld		a, d
-	inc 	a
-	jp		CheckHumanShipMissileOnTarget_search_martian_ship_loop
-CheckHumanShipMissileOnTarget_search_martian_ship_checkx:
-	ld		a, d
-	ld		hl, MartiansShipsPositionX
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	ld		hl, MartianShipToRemoveX
-	ld		(hl),a
-	cp		c
-	jp		z, MartianShipCrash
-	inc		a
-	cp 		c
-	jp		z, MartianShipCrash
-	inc		a
-	cp 		c
-	jp		z, MartianShipCrash
-	inc		a
-	cp 		c
-	jp		z, MartianShipCrash
-	ld		a, d
-	inc 	a
-	jp		CheckHumanShipMissileOnTarget_search_martian_ship_loop
-
-CheckHumanShipMissileOnTarget_search_martian_ship_exit:
-	pop		de
-	pop		bc
-	ld		a, 0
-	ret
-MissilesCrash:
-	push	bc
-	push	de
-	ld		hl, HumanMissileArrayPosition
-	ld		d,(hl)
-	call	z, RemoveHumanMissile
-	pop		de
-	pop		bc
-
-
-	push	bc
-	call	DisplayExplosion
-	pop		bc
-
-	pop		de
-	pop		bc
-	ret
-MartianShipCrash:
-	push	de
-	ld		hl, HumanMissileArrayPosition
-	ld		d,(hl)
-	call	z, RemoveHumanMissile
-	pop		de
-
-	push	bc
-	push	de
-	ld		e, d
-	ld		c,0
-	ld		b,0
-	call	UpdateMartianShipArrayPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	ld		hl, MartianShipToRemoveX
-	ld		c,(hl)
-	ld		hl, MartianShipToRemoveY
-	ld		b,(hl)
-	call	RemoveMartianShip
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	ld		hl, Martians
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	call	RefreshMartiansCounters
-	pop		de
-	pop		bc
-
-
-	push	bc
-	ld		hl, MartianShipToRemoveX
-	ld		c,(hl)
-	ld		hl, MartianShipToRemoveY
-	ld		b,(hl)
-	call	DisplayExplosion
-	pop		bc
-
-	
-
-	pop		de
-	pop		bc
-	ret
-ClearHumans:
-ClearHumans_21:
-	ld		a, 0
-	ld		b, 21
-ClearHumans_loop_21:
-	inc		a
-	ld		e, a
-	cp		78
-	jp		z, ClearHumans_22
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearHumans_loop_21
-ClearHumans_22:
-	ld		a, 0
-	ld		b, 22
-ClearHumans_loop_22:
-	inc		a
-	ld		e, a
-	cp		78
-	jp		z, ClearHumans_23
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearHumans_loop_22
-ClearHumans_23:
-	ld		a, 0
-	ld		b, 23
-ClearHumans_loop_23:
-	inc		a
-	ld		e, a
-	cp		78
-	jp		z, ClearHumans_24
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearHumans_loop_23
-ClearHumans_24:
-	ld		a, 0
-	ld		b, 24
-ClearHumans_loop_24:
-	inc		a
-	ld		e, a
-	cp		78
-	jp		z, ClearHumans_25
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearHumans_loop_24
-ClearHumans_25:
-	ld		a, 0
-	ld		b, 25
-ClearHumans_loop_25:
-	inc		a
-	ld		e, a
-	cp		78
-	ret		z
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearHumans_loop_25
-
-
-
-
-ClearScreen:
-	call	CLS
-ClearScreen_23:
-	ld		a, -1
-	ld		b, 24
-ClearScreen_loop_23:
-	inc		a
-	ld		e, a
-	cp		81
-	jp		z, ClearScreen_24
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearScreen_loop_23
-ClearScreen_24:
-	ld		a, -1
-	ld		b, 24
-ClearScreen_loop_24:
-	inc		a
-	ld		e, a
-	cp		81
-	jp		z, ClearScreen_25
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearScreen_loop_24
-ClearScreen_25:
-	ld		a, -1
-	ld		b, 25
-ClearScreen_loop_25:
-	inc		a
-	ld		e, a
-	cp		81
-	jp		z, ClearScreen_26
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearScreen_loop_25
-ClearScreen_26:
-	ld		a, -1
-	ld		b, 26
-ClearScreen_loop_26:
-
-	inc		a
-	ld		e, a
-	cp		80
-	ret		z
-	push	bc
-	ld		c, a
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, e
-	jp		ClearScreen_loop_26
-	ret
-DisplayExplosion:
-	; INPUT: C=Position X, B=Position Y
-	push	bc
-	call	PrintExplosion
-	pop		bc
-
-	push	bc
-	ld		bc, 0fffh
-	call	Delay
-	ld		bc, 0fffh
-	call	Delay
-	ld		bc, 0fffh
-	call	Delay
-	pop		bc
-
-	push	bc
-	call	ClearExplosion
-	pop		bc
-
-	ld		hl, HumanExplosionFlag
-	ld		(hl),0
-
-	ret
-MartianShipFireManagement:
-	; INPUT: C=Position X, B=Position Y
-	push	de
-	ld		hl, MartiansMissilesRatio
-	ld		d, (hl)
-	call	GenerateRandomNumber
-	cp		d
-	call	c, MartianShipFireManagement_fire
-	pop		de
-	ret
-MartianShipFireManagement_fire:
-	call	GetFirstFreeMartianMissileArrayPosition
-	cp		100
-	ret		z
-	push	de
-	
-	ld		d, a
-	inc		b
-	inc		b
-	inc 	c
-
-
-	call	UpgradeMartianMissilePosition
-
-	call	PrintMartianMissile
-	pop		de
-	ret
-UpgradeMartianMissilePosition:
-	;		INPUT: C=Position X, B=Position Y, D=ArrayPosition
-	push	de
-
-	ld		hl, MartianMissilesPosX
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		(hl),c
-
-	ld		hl, MartianMissilesPosY
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		(hl),b
-
-	pop		de
-	ld		a, d
-	ret
-ResetMartiansMissilesPositions:
-	ld		e, 0
-ResetMartiansMissilesPositions_loop:
-	ld		a, e
-	cp		100
-	ret     z
-	ld		c,0
-	ld		b,0
-	ld		d, a
-	call 	UpgradeMartianMissilePosition
-	inc		e
-	jp		ResetMartiansMissilesPositions_loop
-RefreshMartiansMissilesPositions:
-	ld		a, 0
-RefreshMartiansMissilesPositions_loop:
-	cp		100
-	ret     z
-
-	push	de
-	push	bc
-	ld		e, a
-
-	ld		hl, Humans
-	ld		a,(hl)
-	cp		0
-	jp		z, GameOver
-	ld		hl, MartianMissilesPosX
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		c,(hl)
-	ld		a, c
-	cp		0
-	jp		z, RefreshMartiansMissilesPositions_next
-	ld		hl, MartianMissilesPosY
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		b,(hl)
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	ld		d, e
-	pop		bc
-	push	bc
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	inc		b
-	ld		d, e
-	ld		a, b
-	cp		23
-	jp		z, RefreshMartiansMissilesPositions_check_human
-	cp		21
-	jp		z, RefreshMartiansMissilesPositions_check_human_ship
-	cp		22
-	jp		z, RefreshMartiansMissilesPositions_check_human_ship
-RefreshMartiansMissilesPositions_loop_continue:
-	cp		26
-	jp		z, RefreshMartiansMissilesPositions_remove
-	call	UpgradeMartianMissilePosition
-	call	PrintMartianMissile
-RefreshMartiansMissilesPositions_next:
-	ld		a, e
-	inc  	a
-	pop		bc
-	pop		de
-	jp		RefreshMartiansMissilesPositions_loop
-
-RefreshMartiansMissilesPositions_remove:
-	ld		c,0
-	ld		b,0
-	call	UpgradeMartianMissilePosition
-	jp		RefreshMartiansMissilesPositions_next
-RefreshMartiansMissilesPositions_check_human:
-	ld		hl,MartianMissileCollisionSecCharacter
-	ld		(hl),0
-	push	de
-	push	bc
-	ld		d, a
-	push	bc
-	call	ReadCharacterFromVramAtPosition
-	ld		a, c
-	cp		32
-	pop		bc
-	jp		z, RefreshMartiansMissilesPositions_check_human_second_character
-
-RefreshMartiansMissilesPositions_check_human_continue:
-	call	RemoveHuman
-
-
-	ld		a, d
-	pop		bc
-	pop		de
-
-	ld		hl, HumanExplosionFlag
-	ld		(hl),1
-	push	bc
-	call	DisplayExplosion
-	pop		bc
-
-	ld		hl, Humans
-	ld		a,(hl)
-	dec		a
-	ld		(hl),a
-	push	bc
-	push	de
-	call	RefreshHumansCounters
-	pop		de
-	pop		bc
-	
-	jp		RefreshMartiansMissilesPositions_remove
-RefreshMartiansMissilesPositions_check_human_second_character:
-	push	bc
-	inc		c
-	call	ReadCharacterFromVramAtPosition
-	ld		a, c
-	cp		32
-	pop		bc
-	jp		z, RefreshMartiansMissilesPositions_check_human_no
-	ld		hl,MartianMissileCollisionSecCharacter
-	ld		(hl),1
-	jp		RefreshMartiansMissilesPositions_check_human_continue
-RefreshMartiansMissilesPositions_check_human_no:
-	
-	ld		a, d
-	pop		bc
-	pop		de
-	jp		RefreshMartiansMissilesPositions_loop_continue
-RemoveHuman:
-	push	de
-	ld		e, a
-
-	cp		205
-	jp		z, RemoveHuman_left
-	cp		206
-	jp		z, RemoveHuman_center
-	cp		207
-	jp		z, RemoveHuman_right
-RemoveHuman_exit:
-	pop		de
-	ret
-RemoveHuman_left:
-
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	ld		hl,MartianMissileCollisionSecCharacter
-	ld		a,(hl)
-	cp		0
-	jp		z, RemoveHuman_exit
-
-	push	bc
-	inc		c
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		c
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc 	b
-	inc		c
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	jp		RemoveHuman_exit
-
-RemoveHuman_center:
-
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-
-	push	bc
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	jp		RemoveHuman_exit
-RemoveHuman_right:
-
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	dec		c
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	dec		c
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		b
-	inc		b
-	dec		c
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	jp		RemoveHuman_exit
-RefreshMartiansMissilesPositions_check_human_ship:
-	ld		hl,MartianMissileCollisionSecCharacter
-	ld		(hl),0
-	push	de
-	push	bc
-	ld		d, a
-	push	bc
-	call	ReadCharacterFromVramAtPosition
-	ld		a, c
-	cp		32
-	pop		bc
-	jp		z, RefreshMartiansMissilesPositions_check_ship_second_character
-RefreshMartiansMissilesPositions_check_human_ship_continue:
-	call	RemoveHumanShip
-	push	bc
-	call	DisplayExplosion
-	pop		bc
-	ld		a, d
-	pop		bc
-	pop		de
-	jp		RefreshMartiansMissilesPositions_remove
-RefreshMartiansMissilesPositions_check_ship_second_character:
-	push	bc
-	inc		c
-	call	ReadCharacterFromVramAtPosition
-	ld		a, c
-	cp		32
-	pop		bc
-	jp		z, RefreshMartiansMissilesPositions_check_human_ship_no
-	ld		hl,MartianMissileCollisionSecCharacter
-	ld		(hl),1
-	jp		RefreshMartiansMissilesPositions_check_human_ship_continue
-RefreshMartiansMissilesPositions_check_human_ship_no:
-	
-	ld		a, d
-	pop		bc
-	pop		de
-	jp		RefreshMartiansMissilesPositions_loop_continue
-
-RemoveHumanShip:
-	; MODIFY: HL, DE, BC
-	ld		hl, HumanShipVisible
-	ld		(hl),0
-
-	ld		hl, HumanShipStopTimeCicle
-	ld		(hl),4
-	ld		hl, 30000
-	ld		(HumanShipStopTime),bc
-
-	ld		hl,HumanShipMovingDirection
-	ld		(hl),0
-
-	ld		a,1
-
-RemoveHumanShip_loop:
-	cp		78
-	ret		z
-	push	de
-	push	bc
-	ld		e, a
-	ld		c, a
-	ld		b,22
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	ld		a, e
-	pop		bc
-	pop		de
-
-	push	de
-	push	bc
-	ld		e, a
-	ld		c, a
-	ld		b,21
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	ld		a, e
-	pop		bc
-	pop		de
-
-	inc		a
-	jp		RemoveHumanShip_loop
-	ret
-PrintMartianMissile:
-	; INPUT: D=ArrayPosition
-	push	bc
-	push	de
-	ld		hl, MartianMissilesPosX
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		c,(hl)
-
-	ld		hl, MartianMissilesPosY
-	ld		a, d
-	call	Add8BitTo16Bit
-	ld		b,(hl)
-
-	push	bc
-	ld		d, MartianMissile
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	push	bc
-	inc		c
-	ld		d,MartianMissile
-	inc		d
-	inc		d
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	pop		de
-	pop		bc
-	ret
-GetFirstFreeMartianMissileArrayPosition:
-	; OUTPUT: a=Array position (100 if none)
-	push	bc
-	ld		a,0
-GetFirstFreeMartianMissileArrayPosition_loop:
-	cp		100
-	jp		z, GetFirstFreeMartianMissileArrayPosition_loop_end
-	ld		c, a
-	ld		hl, MartianMissilesPosX
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	cp		0
-	jp		z, GetFirstFreeMartianMissileArrayPosition_loop_end
-	ld		a, c
-	inc		a
-	jp		GetFirstFreeMartianMissileArrayPosition_loop
-GetFirstFreeMartianMissileArrayPosition_loop_end:
-	ld		a,c
-	pop		bc
-	ret
-
-
-SetLevelParameters:
-	ld		hl, SelectedLevel
-	ld		a,(hl)
-	cp		2
-	jp		z, SetLevelParameters_level2
-	cp		3
-	jp		z, SetLevelParameters_level3
-SetLevelParameters_level1:
-	ld		hl, Martians
-	ld		(hl), 20
-	ld		hl, MartiansMissilesRatio
-	ld		(hl), 15
-	ret
-SetLevelParameters_level2:
-	ld		hl, Martians
-	ld		(hl), 25
-	ld		hl, MartiansMissilesRatio
-	ld		(hl), 25
-	ret
-SetLevelParameters_level3:
-	ld		hl, Martians
-	ld		(hl), 29
-	ld		hl, MartiansMissilesRatio
-	ld		(hl), 35
-	ret
-ClearEmptyRowsFromMatriansShips:
-	ld		a,2
-ClearEmptyRowsFromMatriansShips_loop:
-	ld		b, a
-	cp		12
-	ret		z
-	call	ClearEmptyRowsFromMatriansShips_check_row
-	ld		a, d
-	cp		1
-	call	z, ClearEmptyRowsFromMatriansShips_remove_ship
-	ld		a, b
-	inc		a
-	inc		a
-	jp		ClearEmptyRowsFromMatriansShips_loop
-ClearEmptyRowsFromMatriansShips_check_row:
-	ld		c, a
-	ld		a, 0
-ClearEmptyRowsFromMatriansShips_check_row_loop:
-	ld		d, 0
-	ld		e, a
-	cp		4
-	ret		z
-	ld		hl, MissilesPosY
-	call	Add8BitTo16Bit
-	ld		a, (hl)
-	cp		b
-	jp		z, ClearEmptyRowsFromMatriansShips_check_row_found
-	ld		a, e
-	inc		a
-	jp		ClearEmptyRowsFromMatriansShips_check_row_loop
-ClearEmptyRowsFromMatriansShips_check_row_found:
-	ld		d, 1
-	ret
-ClearEmptyRowsFromMatriansShips_remove_ship
-	ld		c,1
-	call	RemoveMartianShip
-	ret
-MartiansShipsShowedCounter:
-	ld		hl, Martians:
-	push	bc
-	ld		a,0
-	ld		b, 0
-MartiansShipsShowedCounter_loop:
-	cp		4
-	jp		z, MartiansShipsShowedCounter_loop_end
-	ld		c, a
-	ld		hl, MartiansShipsPositionX
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	cp		0
-	call	nz, MartiansShipsShowedCounter_ship_found
-	ld		a, c
-	inc		a
-	jp		MartiansShipsShowedCounter_loop
-MartiansShipsShowedCounter_loop_end:
-	ld		a,b
-	pop		bc
-	ret
-MartiansShipsShowedCounter_ship_found:
-		inc		b
-		ret
-
-MartianShipsManagment:
-	push	bc
-	push	hl
-	push	de
-	call	MartiansShipsShowedCounter
-	ld		hl, Martians
-	ld		b, (hl)
-	cp		b
-	jp		nc, MartianShipsManagment_end
-	call 	GetFirstMartianShipsArrayFreePosition
-	cp		4
-	jp		z, MartianShipsManagment_end
-	ld		e, a
-	ld		a,	r
-	cp		6
-	jp		nc, MartianShipsManagment_end ; Se esce numero 10 (su 20 possibili) genero una nuova nave marziana
-	
-	ld		c, 74		
-	ld		d, 1
-	call	GenerateRandomNumber
-	cp		125
-	call	nc, MartianShipsManagment_direction_from_left
-	ld		hl, MartiansShipsDirection
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),d
-
-	ld		d, 0
-	call	GenerateRandomNumber	; Trovo la nave da visualizzare
-	cp		255
-	call	c, MartianShipsManagment_martian1
-	cp		150
-	call	c, MartianShipsManagment_martian2
-	cp		80
-	call	c, MartianShipsManagment_martian3
-	call	GenerateRandomNumber ; Trovo la riga
-	ld		b,2
-	cp		200
-	call	c, MartianShipsManagment_row_4
-	cp		150
-	call	c, MartianShipsManagment_row_6
-	cp		100
-	call	c, MartianShipsManagment_row_8
-	cp		50
-	call	c, MartianShipsManagment_row_10
-	call	MartianShipsManagment_verify_position
-	ld		a, b
-	cp		100
-	jp		z,MartianShipsManagment_end
-	ld		a,b
-	cp		2
-	call	z, MartianShipsManagment_right_start_position
-	call	UpdateMartianShipArrayPosition
-	ld 		hl, MartiansShipType
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),d
-	ld		hl,	MartiansDirectionChanged
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),0
-	call	ShowMartianShip
-
-MartianShipsManagment_end: 
-	pop		de
-	pop		hl
-	pop		bc
-	ret
-MartianShipsManagment_martian1:
-	ld d, MartianShip1a
-	ret
-MartianShipsManagment_martian2:
-	ld d, MartianShip2a
-	ret
-MartianShipsManagment_martian3:
-	ld d, MartianShip3a
-	ret
-MartianShipsManagment_dx:
-	ld		c, 1
-	ret
-MartianShipsManagment_direction_from_left:
-	ld		d,2
-	ld		c, 1
-	ret
-MartianShipsManagment_row_4:
-	ld		b, 4
-	ret
-MartianShipsManagment_row_6:
-	ld		b, 6
-	ret
-MartianShipsManagment_row_8:
-	ld		b, 8
-	ret
-MartianShipsManagment_row_10:
-	ld		b, 10
-	ret
-MartianShipsManagment_right_start_position:
-	ld		a, c
-	cp		74
-	ret		nz
-	ld		c,58
-	ret
-MartianShipsManagment_verify_position:
-	push	hl
-	push	de
-	ld		a,	0
-	ld		d, 	b
-MartianShipsManagment_verify_position_loop:
-	cp		4
-	jp		z, MartianShipsManagment_verify_position_end
-	ld		e, a
-	
-	ld 		hl, MartiansShipsPositionX
-	call	Add8BitTo16Bit
-	ld		a, (hl)
-	cp		0
-	jp      z, MartianShipsManagment_verify_position_return_to_loop
-
-	ld		a, e
-	ld 		hl, MartiansShipsPositionY
-	call	Add8BitTo16Bit
-	ld		a, (hl)
-	cp		b
-	jp		z, MartianShipsManagment_verify_position_invalid
-
-	ld		a, e
-	inc     a
-	jp		MartianShipsManagment_verify_position_loop
-MartianShipsManagment_verify_position_end
-	pop		de
-	pop		hl
-	ret
-MartianShipsManagment_verify_position_invalid:
-	ld		b, 100
-	jp		MartianShipsManagment_verify_position_end
-MartianShipsManagment_verify_position_return_to_loop:
-	ld		a, e
-	inc     a
-	jp		MartianShipsManagment_verify_position_loop	
-GetFirstMartianShipsArrayFreePosition:
-		; OUTPUT: a=Array position (4 if none)
-	push	bc
-	ld		a,0
-GetFirstMartianShipsArrayFreePosition_loop:
-	cp		4
-	jp		z, GetFirstMartianShipsArrayFreePosition_loop_end
-	ld		c, a
-	ld		hl, MartiansShipsPositionX
-	call	Add8BitTo16Bit
-	ld		a,(hl)
-	cp		0
-	jp		z, GetFirstMartianShipsArrayFreePosition_loop_end
-	ld		a, c
-	inc		a
-	jp		GetFirstMartianShipsArrayFreePosition_loop
-GetFirstMartianShipsArrayFreePosition_loop_end:
-	ld		a,c
-	pop		bc
-	ret
-GenerateRandomNumber:
-	; INPUT: L=Max value
-	; OUTPUT: A=Generate random number (0<=a<=255)
-	push	bc
-	ld	a,(RndSeed)
-	ld	b,a
-	add	a,a
-	add	a,a
-	add	a,b
-	inc	a; another possibility is ADD A,7
-	ld	(RndSeed),a
-	pop	bc
-	ret
-ResetMartiansPositions:
-	ld		hl, Counter
-	ld		(hl),0
-	ld		a,(hl)
-ResetMartiansPositions_loop:
-	cp		4
-	jp		z, ResetMartiansPositions_exit
-	ld		e, a
+	db "AB"											; ID for auto-executable ROM
+	dw start										; Main program execution address.
+	db 00,00,00,00,00,00 							; Unused
+
+start:
+ ; --- INIT SCREEN ---
+init_screen:
+	ld 		a,80              				; 80 columns 
+	ld 		(LINL40),a
+	xor 	a
+	call 	CHGMOD          				; Screen 0  
+
+	ld		a,(#0fcc1)
+	ld		hl,#002d
+	call	RDSLT
+	or		a
+	jp		nz, init_screen_msx2			; Check if running on a MSX1 machine						
 	ld		c, 0
 	ld		b, 0
-	call	UpdateMartianShipArrayPosition
-	ld		hl, Counter
-	ld		a,(hl)
-	inc		a
-	ld		(hl),a
-	jp		ResetMartiansPositions_loop
-ResetMartiansPositions_exit:
+	ld		hl, TXT_MSX1
+	call	print_string_at
+	di
+	halt
 	ret
-MartiansRefreshPositions:
-	ld		hl, Counter
+init_screen_msx2:
+	ld		a,26							; Set TEXT 2 mode w with 26.5 rows
+	ld		(#F3B1),a					
+	ld		a,(#0fcc1)
+	ld		hl,#0007
+	call	RDSLT
+	ld		c,a
+	inc		c
+	ld		a,(REG9SAV)
+	or		#080
+	di
+	ld		(REG9SAV),a
+	out 	(c),a
+	ld 		a,#80+9
+	ei
+	out 	(c),a		
+	ld 		a,#080
+	di
+	out 	(c),a
+	ld 		a,#047
+	out 	(c),a
+	ei
+	dec 	c
+	ld 		a,32	
+	ld 		b,240	
+
+	xor a 			
+	ld (CLIKSW),a	; 0=click off
+init_screen_loop:
+	out		(c),a
+	djnz	init_screen_loop
+
+; --- LOAD CHAR MAP ---
+load_char_map:
+	
+	ld 		a, (REG4SAV)							; VRAM reg #4 in A registry
+	ld		de, 2048								; Base VRAM address for table generator patterns
+	call	mult_8bit_16bit_values					; Calculate table generator patterns address using VRAM reg #4 factor
+	ld		bc, 1024								; Put into BC registry bytes before char 128
+	add		hl, bc									; Add to table generator patterns bytes before char 128
+	ld		bc, CHAR_MAP_BLOCK_LEN					; Bytes block to copy into VRAM
+	push	hl										; Put HL registry to stack (for to exchange its value with DE registry in next instruction)
+	pop		de										; Restore  table generator patterns address from stack
+	ld 		hl,RunningHuman1_11_128  				; First memory address to write into VRAM
+    call 	LDIRVM
+
+; --- GAME PRESENTATION ---
+show_presentation:									; Print all messages on presentation screen
+
+	ld		hl,TXT_MARTIAN_WAR
+	ld		c, 30
+	ld		b, 0
+	call	print_string_at
+
+
+	ld		hl, TXT_PRES_1
+	ld		c, 5
+	ld		b, 2
+	call    print_string_at
+
+	ld		hl, TXT_KEYS
+	ld		c, 5
+	ld		b, 4
+	call    print_string_at
+
+	ld		hl, TXT_KEY_4
+	ld		c, 20
+	ld		b, 6
+	call    print_string_at
+
+	ld		hl, TXT_KEY_5
+	ld		c, 20
+	ld		b, 7
+	call    print_string_at
+
+	ld		hl, TXT_KEY_6
+	ld		c, 20
+	ld		b, 8
+	call    print_string_at
+
+	ld		hl, TXT_KEY_8
+	ld		c, 20
+	ld		b, 9
+	call    print_string_at
+
+	ld		hl, TXT_PRES_2
+	ld		c, 5
+	ld		b, 11
+	call    print_string_at
+
+	ld		hl, TXT_PRES_3
+	ld		c, 5
+	ld		b, 12
+	call    print_string_at
+
+	ld		hl, TXT_PRES_4
+	ld		c, 5
+	ld		b, 14
+	call    print_string_at
+
+	ld		hl, TXT_PRES_5
+	ld		c, 5
+	ld		b, 15
+	call    print_string_at
+
+	ld		hl, TXT_PRES_6
+	ld		c, 5
+	ld		b, 16
+	call    print_string_at
+
+	ld		hl, TXT_PRES_7
+	ld		c, 5
+	ld		b, 18
+	call    print_string_at
+
+	ld		hl, TXT_PRES_8
+	ld		c, 5
+	ld		b, 19
+	call    print_string_at
+
+	ld		hl, TXT_PRES_9
+	ld		c, 5
+	ld		b, 21
+	call    print_string_at
+
+waiting_enter_on_presentation:						; Waiting enter key pressing
+	ld		a, (NEWKEY+7)	
+	bit		7, a
+	jp		z, show_level_selection					; Key ENTER pressed
+	jp		waiting_enter_on_presentation
+
+
+; --- LEVEL SELECTION ---
+show_level_selection:						
+	call	clear_screen							; Clear screen
+	
+	ld		hl, TXT_MARTIAN_WAR
+	ld		c, 30
+	ld		b, 0
+	call    print_string_at
+
+	ld		hl, TXT_LEVELS
+	ld		c, 5
+	ld		b, 7
+	call    print_string_at
+
+	ld		hl, TXT_LEVEL_1
+	ld		c, 5
+	ld		b, 9
+	call    print_string_at
+
+	ld     hl, TXT_LEVEL_2
+	ld		c, 5
+	ld		b, 10
+	call    print_string_at
+
+	ld      hl, TXT_LEVEL_3
+	ld		c, 5
+	ld		b, 11
+	call    print_string_at
+
+waiting_level_selection:
+	ld		a,(NEWKEY+0)					
+	bit		1,a
+	jp		z,level_1_selected						; Key 1 pressed
+	bit     2,a
+	jp		z,level_2_selected						; Key 1 pressed
+	bit     3,a
+	jp		z,level_3_selected						; Key 1 pressed
+	jp		waiting_level_selection
+level_1_selected:
+	ld		c, 49
+	ld		b, 7
+	ld		a, 49
+	call	print_char_at
+	ld		hl, SELECTED_LEVEL
+	ld		(hl), 1
+	jp		show_sounds_effect_selection:
+level_2_selected:
+	ld		c, 49
+	ld		b, 7
+	ld		a, 50
+	call	print_char_at
+	ld		hl, SELECTED_LEVEL
+	ld		(hl), 2
+	jp		show_sounds_effect_selection:
+level_3_selected:
+	ld		c, 49
+	ld		b, 7
+	ld		a, 51
+	call	print_char_at
+	ld		hl, SELECTED_LEVEL
+	ld		(hl), 3
+
+; --- SOUNDS EFFECT SELECTION ---
+show_sounds_effect_selection:
+	jp		show_war_field							; NO SOUND SELECTION AT THE MOMENT
+	ld      hl, TXT_SOUNDS
+	ld		c, 5
+	ld		b, 15
+	call    print_string_at
+
+	ld		hl, SOUND_EFFECTS
 	ld		(hl),0
-MartiansRefreshPositions_loop:
-	ld		hl, Counter
+waiting_sound_effects_selection:
+	ld		a,(NEWKEY+5)							; Key Y pressed
+	bit		6,a
+	jp		z,sound_effects_selected
+	ld		a,(NEWKEY+4)							; Key N pressed
+	bit     3,a
+	jp		z,init_game_variables
+	jp		waiting_sound_effects_selection
+sound_effects_selected:
+	ld		hl, SOUND_EFFECTS
+	ld		(hl),1
+
+; --- SHOW WAR FIELD ---
+show_war_field:
+	call	clear_screen					; Clear screen
+	ld		c, 63
+	ld    	b, 0
+show_war_field_upper_line_loop				
+	ld    	a, CHAR_HORIZONTAL
+	call  	print_char_at
+	ld		a, c
+	cp		0
+	jp		z, show_war_field_bottom_line
+	dec		c
+	jp		show_war_field_upper_line_loop
+show_war_field_bottom_line:
+	ld		c,	78
+	ld		b,  26
+show_war_field_bottom_line_loop:
+	ld    	a, CHAR_HORIZONTAL
+	call  	print_char_at
+	dec		c
+	ld		a, c
+	cp		0
+	jp		z, show_war_field_right_line
+	jp		show_war_field_bottom_line_loop
+show_war_field_right_line:
+	call	draw_war_field_right_line
+show_war_field_left_line:
+	call	draw_war_field_left_line
+show_war_field_left_right_top_line:
+	ld		c, 78
+	ld		b, 3
+show_war_field_left_right_top_line_loop:
+	ld    	a, CHAR_HORIZONTAL
+	call   	print_char_at
+	dec		c
+	ld		a, c
+	cp		62
+	jp		z, show_war_field_single_characters
+	jp		show_war_field_left_right_top_line_loop
+show_war_field_single_characters:
+	ld    	b, 0
+	ld    	c, 0
+	ld    	a, CHAR_TOP_LEFT
+	call   	print_char_at
+	ld    	b, 26
+	ld    	c, 0
+	ld    	a, CHAR_BOTTOM_LEFT
+	call    print_char_at
+	ld    	b, 26
+	ld    	c, 78
+	ld    	a, CHAR_BOTTOM_RIGHT
+	call    print_char_at
+	ld    	b, 3
+	ld    	c, 78
+	ld    	a, CHAR_TOP_RIGHT
+	call    print_char_at
+show_war_field_info_box:
+	call draw_war_field_info_box
+; --- INIT GAME VARIABLES ---
+init_game_variables:
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		(hl), 0											; Reset human explosion type
+	call    reset_matians_info								; Reset all martians info
+	ld		hl, HUMANS_COUNTER								; Set humans counter to 19
+	ld		(hl), 19
+	call	set_selected_level_parameters					; Set selected level prameters
+	ld		hl, HUMAN_SHIP_INFO+1							; Human ship position set to 38
+	ld		(hl), 38
+	ld		hl, HUMAN_SHIP_INFO+2							; Reset human ship movement direction
+	ld		(hl), 0
+	ld		hl, HUMAN_SHIP_INFO+4							; Reset human ship speed counter
+	ld		(hl), 0
+	ld		hl, HUMAN_SHIP_INFO+6							; Reset human ship bomp X positon
+	ld		(hl), 0
+	ld		hl, HUMAN_SHIP_INFO+7							; Reset human ship bomp Y positon
+	ld		(hl), 0
+	ld		(HUMAN_SHIP_INFO+8),bc
+	ld		bc, 0
+	ld		(hl), bc										; Reset human ship hidden time counter
+	call	reset_martians_bombs_positions					; Reset all martian bomb positions
+	ld		hl, HUMAN_SHIP_INFO								; Set human ship visible to true
+	ld		(hl),1
+	ld		hl, HUMAN_SHIP_INFO+3							; Enable human ship firing
+	ld		(hl), 1
+; --- SHOW COUNTERS ---
+show_info:
+	ld      hl, TXT_MARTIAN_WAR
+	ld		c, 66
+	ld		b, 0
+	call    print_string_at
+	ld      hl, TXT_HUMANS
+	ld		c, 65
+	ld		b, 1
+	call    print_string_at
+	ld      hl, TXT_MARTIANS
+	ld		c, 65
+	ld		b, 2
+	call    print_string_at
+	call 	refresh_human_counter
+	call	refresh_martians_counter
+; --- SHOW RUNNING HUMANS ---
+show_running_humans:
+	xor		0												; Put A registry to zer0
+	ld		(LOOP_COUNTER), a								; Reset showed human counter
+	ld		hl, RUNNING_HUMANS_INFO
+	ld		(hl), 19										; Set number of remainin running humans to show
+	ld		hl, RUNNING_HUMANS_INFO+1 						; Set stop position for human running from right
+	ld		(hl), 44
+	ld		hl, RUNNING_HUMANS_INFO+2 						; Set stop position for human running from left
+	ld		(hl), 38
+show_running_humans_next:
+	ld		hl, RUNNING_HUMANS_INFO
+	ld		a, (hl)
+	cp		0												; Check remaining humans to show
+	jp		z, show_human_ship								; All humans are on screen
+
+	
+	and 	1           									; Check if show the running human from left or right side
+	jp		nz, show_running_humans_from_left_side  
+
+show_running_humans_from_right:								; Show running human from right
+	ld    	hl, RUNNING_HUMANS_INFO+3				
+	ld    	(hl), 76										; Set current position to 76
+show_running_humans_from_right_set_first_image:
+	ld    	hl, RUNNING_HUMANS_INFO+4  	
+	ld    	(hl), 4											; Set first human image
+show_running_humans_from_right_loop: 	 					; Loop to show running human from right
+	ld		hl, RUNNING_HUMANS_INFO+3				
+ 	ld   	b,(hl) 											; Get current position
+	ld    	hl, RUNNING_HUMANS_INFO+1
+ 	ld   	a,(hl) 	  		
+ 	cp   	b												; Check if running human arrived to his position
+ 	jp   	z, show_running_humans_from_right_arrived		; Human arrived to his final position
+	ld   	d,a
+	ld 		hl, RUNNING_HUMANS_INFO+4						; Get image to print
+	ld      a, (hl)
+	ld 		h, 9
+	call 	mult_8bit_values
+	ld   	a, 128
+	add  	a, l
+	ld   	e, a
+	ld 		hl,  RUNNING_HUMANS_INFO+3
+ 	ld   	a,(hl) 	
+	ld		d, a
+	call 	show_running_humans_from_right_draw				; Show human in new position
+	ld   	bc,$0500										; Set sleeping duration
+	call 	sleep											; sleep execution
+	ld    	hl,  RUNNING_HUMANS_INFO+3							
+	ld		a,(hl)									
+ 	dec  	a
+	ld 		(hl),a											; Change human running position
+	ld 		hl, RUNNING_HUMANS_INFO+4						; Change human image to show
+	ld 		a, (hl)
+	dec  	a
+	ld 		(hl),a
+	cp   	0
+	jp   	z, show_running_humans_from_right_set_first_image		
+ 	jp   	show_running_humans_from_right_loop	
+show_running_humans_from_right_arrived:	 					; Running human from right arrived to your position
+	
+	ld		hl, RUNNING_HUMANS_INFO							
+	ld		a, (hl)
+	dec		a
+	ld		(hl), a											; Decrement the remaining human to display number
+	ld		hl, RUNNING_HUMANS_INFO+1 						; Set new stop position from running human from right
+	ld		e, CHAR_STATIC_HUMAN 							
+	ld		d, (hl)
+
+	call 	show_running_humans_save_static_position		; Save static human position
+
+	call 	show_running_humans_from_right_draw				; Print static human
+	ld		hl, RUNNING_HUMANS_INFO+1  						; Set new stop position from running human from right
+	ld		a, (hl)
+	add		a, 4
+	ld		(hl), a											; Update next stop position for running human from right
+	jp		show_running_humans_next 	          
+
+show_running_humans_save_static_position:
+
+	ld		(LOOP_COUNTER), a								; Update static human counter
+
+	ld		hl, HUMANS_POSITIONS
+	call	add_8bit_16bit_values
+	ld		(hl), d											; Save human position
+	ld		a, (LOOP_COUNTER)
+	inc		a
+	ld		(LOOP_COUNTER), a								; Increase counter
+	ret														
+show_running_humans_from_right_draw:						; Print all human characters and print spaces for clear previous characters printed
+	push 	bc
+	push  	de
+	ld    	a, d
+	sub   	2
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	dec   	a
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	inc	  	e
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+    push 	bc
+	push  	de
+	ld    	a, d
+	sub		2
+	inc	  	e
+	inc	  	e
+	inc   	e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	dec   	a
+	inc	  	e
+	inc	  	e
+	inc   	e
+	inc   	e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	inc	  	e
+	inc	  	e
+	inc   	e
+	inc   	e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	sub		2
+	inc	  	e
+	inc	  	e
+	inc	  	e
+	inc   	e
+	inc   	e
+	inc   	e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	dec   	a
+	inc	  	e
+	inc	  	e
+	inc	  	e
+	inc   	e
+	inc   	e
+	inc   	e
+	inc   	e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	inc	  	e
+	inc	  	e
+	inc	  	e
+	inc   	e
+	inc   	e
+	inc   	e
+	inc   	e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+ 
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc   	a
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc   	a
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+	
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc   	a
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	ret
+
+
+show_running_humans_from_left_side:							; Show running human from left
+	ld    	hl, RUNNING_HUMANS_INFO+3
+	ld    	(hl),2											; Set current position to 2
+show_running_humans_from_left_set_first_image:
+	ld    	hl, RUNNING_HUMANS_INFO+4  	
+	ld    	(hl), 4											; Set first human image
+show_running_humans_from_left_loop: 	 	
+	ld		hl, RUNNING_HUMANS_INFO+2						; Loop to show running human from left
+ 	ld   	b,(hl) 
+	ld    	hl, RUNNING_HUMANS_INFO+3
+ 	ld   	a,(hl) 	  		
+ 	cp   	b												; check if human is in your final destination
+ 	jp   	z, show_running_humans_from_left_arrived 		; Human arrived to his final position
+	ld   	d,a
+	ld 		hl, RUNNING_HUMANS_INFO+4						; Change human image to show
+	ld      a, (hl)
+	ld 		h, 9
+	call 	mult_8bit_values
+	ld   	a, 128
+	add  	a, l
+	ld   	e, a
+	ld 		hl, RUNNING_HUMANS_INFO+3						; Change human running position
+ 	ld   	a,(hl) 	
+	ld		d, a
+	call 	show_running_humans_from_left_draw				; Show human in new position
+	ld   	bc,$0500
+	call 	sleep											; sleep execution
+	ld    	hl, RUNNING_HUMANS_INFO+3						; Change running human position
 	ld		a,(hl)
+ 	inc  	a
+	ld 		(hl),a
+	ld 		hl, RUNNING_HUMANS_INFO+4						; Change human image to show
+	ld 		a, (hl)
+	dec  	a
+	ld 		(hl),a
+	cp   	0
+	jp   	z, show_running_humans_from_left_set_first_image
+ 	jp   	show_running_humans_from_left_loop
+
+show_running_humans_from_left_arrived:
+	ld		hl, RUNNING_HUMANS_INFO					
+	ld		a, (hl)
+	dec		a
+	ld		(hl), a									
+	ld		hl, RUNNING_HUMANS_INFO+2 						; Set new stop position from running human from right
+	ld		e, CHAR_STATIC_HUMAN
+	ld		d, (hl)
+	call 	show_running_humans_save_static_position		; Save static human position
+	call 	show_running_humans_from_left_draw	
+	ld		hl, RUNNING_HUMANS_INFO+2 						; Set new stop position from running human from right
+	ld		a, (hl)
+	sub		4
+	ld		(hl), a
+	jp		show_running_humans_next 	
+show_running_humans_from_left_draw:							; Print all human characters and print spaces for clear previous characters printed
+	push 	bc
+	push  	de
+	ld    	a, d
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	inc   	a
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc	  	e
+	inc	  	e
+	inc		a
+	inc		a
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+    push 	bc
+	push  	de
+	ld    	a, d
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc 
+	push  	de
+	ld    	a, d
+	inc   	a
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc		a
+	inc		a
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	inc   	a
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push	bc
+	push  	de
+	ld    	a, d
+	inc		a
+	inc		a
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	inc		e
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, e
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+ 
+	push 	bc
+	push  	de
+	ld    	a, d
+	dec   	a
+	ld    	b, 23
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+
+	push 	bc
+	push  	de
+	ld    	a, d
+	dec   	a
+	ld    	b, 24
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   	de
+	pop  	bc
+	
+	push 	bc
+	push  	de
+	ld    	a, d
+	dec   	a
+	ld    	b, 25
+	ld    	c, a
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop   de
+	pop  	bc
+
+	ret
+
+; --- SHOW HUMAN SHIP ---
+show_human_ship:
+	call	print_human_ship
+
+; --- SETUP TIMERHOOK ---
+setup_timerhook:
+		di											; Disable interrupts
+		ld a,#c3									; JP instruction opcode
+		ld (HTIMI),a								; Load into the hook memory adress
+		ld hl, timerhook							; Load the adress of the hook routine that's invokedl
+		ld (HTIMI+1), hl 							; Load adress into hook after the jp instruction
+		ei              							; Enable interrupts
+
+; --- MAIN LOOP ---
+main_loop:
+	ld		a,(KEYS+8)								
+	bit		0,a				
+	call	z, start_human_ship_fire				; key 'SPACE' pressed
+	ld		a,(KEYS+8)								
+	bit		4,a				
+	call	z, start_human_ship_move_left			; Key 'LEFT ARROW' pressed
+	ld		a,(KEYS+8)								
+	bit		7,a				
+	call	z, start_human_ship_move_right			; Key 'RIGHT ARROW' pressed
+	ld		a,(KEYS+8)		
+	bit		5,a				
+	call	z, stop_human_ship_movement				; Key 'UP ARROW' pressed
+	ld		a,(NEWKEY+1)	
+	bit		0,a
+	call	z, start_human_ship_fire				; Key '8' pressed
+	ld		a,(NEWKEY+0)	
+	bit		4,a
+	call	z, start_human_ship_move_left			; Key '4' pressed
+	ld		a,(NEWKEY+0)	
+	bit		6,a
+	call	z, start_human_ship_move_right			; Key '6' pressed
+	ld		a,(NEWKEY+0)	
+	bit		5,a
+	call	z, stop_human_ship_movement				; Key '5' pressed
+
+	ld		hl,	HUMANS_COUNTER
+	ld  	a, (hl)									; Get humans counter
+	cp		0
+	jp		z, game_over_lost						; Game over (lost)
+
+	ld		hl, MARTIANS_COUNTER
+	ld  	a, (hl)									; Get martians counter
+	cp		0
+	jp		z, game_over_win									; Game over (win)
+
+
+	call	move_martians_bombs									; Move martians bombs
+	call	move_martians_ships									; Move martians ships
+	ld		hl, HUMAN_SHIP_INFO
+	ld		a, (hl)												; Get human ship visible status
+	cp		0													
+	call	z, check_human_ship_visible							; Check if is possible to set human ship visible status to true
+main_loop_timed_actions:
+	xor 	a													; Set a to 0			
+	ld 		hl, VBLANK_FLAG
+	cp 		(hl)												; Check if vblankFlag=0
+	jp 		z, main_loop 										; Skip timed instructions if vblankflag=0
+	ld		hl, HUMAN_SHIP_INFO+2				
+	ld		a, (hl)
+	cp		1
+	call	z, move_human_ship_to_right							; Move human ship to right if direction set
+	cp		2
+	call	z, move_human_ship_to_left							; Move human ship to left if direction set
+
+	ld		hl, HUMAN_SHIP_INFO+3
+	ld		a, (hl)												; Get human ship fire status
+	cp		0
+	call	z,	move_human_ship_bomb							; Human ship fire in action and bomb movement needed
+
+	ld		hl, MARTIANS_SHIPS_INFO+1							; Get number of martians ships displayed
+	ld		a, (hl)
 	cp		4
-	jp		z, MartiansRefreshPositions_end
-	ld 		hl, MartiansShipsPositionX
-	call	Add8BitTo16Bit
-	ld		c,(hl)
+	call	nz, new_martian_ship_to_show_evaluation				; Evaluate if to show a new martian ship
+	call	martian_bomb_fire_evaluation						; Evaluate martians ships fire
+    ld 		hl, VBLANK_FLAG										; Reset the vblankFlag
+    ld		(hl), 0
+	jp		main_loop											; Repeat loop
+
+; --- TIMERHOOK ---
+timerhook:
+	ld 		hl, VBLANK_FLAG 
+    ld 		(hl), 1
+	ret
+; --- CUSTOM CALLS ---
+check_human_ship_visible:
+	; --> CHECK IF IS POSSIBLE TO SET HUMAN SHIP VISIBLE STATUS TO TRUE
+	ld		bc, (HUMAN_SHIP_INFO+8)								; Get timer counter
+	dec		bc
+	ld		(HUMAN_SHIP_INFO+8), bc
+	ld		a, b
+	cp		0
+	ret		nz
+	ld		a, c
+	cp		0
+	ret		nz													; Human ship must been hide because the timer is not zero
+	ld		hl, HUMAN_SHIP_INFO
+	ld		(hl),1												; Set human ship visible flag to true
+	ld		hl, HUMAN_SHIP_INFO+3								; Enable human ship firing
+	ld		(hl), 1
+	call	print_human_ship
+	ret
+print_explosion:
+	; --> SHOW EXPLOSION ON SCREEN
+	; INPUT: C=Position X, B=Position Y
+	push	bc
+	call	print_explosion_1
+	pop		bc
+	push	bc
+	ld		bc, 0fffh
+	call	sleep
+	pop		bc
+	push	bc
+	ld		bc, 0fffh
+	call	sleep
+	pop		bc
+	push	bc
+	ld		bc, 0fffh
+	call	sleep
+	pop		bc
+
+	push	bc
+	call	remove_explosion
+	pop		bc
+	;call   	set_explosion_in_progress
+	ret
+print_explosion_1:
+	push	bc										; Backup BC registry to stack		
+
+	ld		a, CHAR_EXPLOSION
+	call 	print_char_at
+
+	ld		a, CHAR_EXPLOSION
+	inc		a
+	inc		c
+	call 	print_char_at
+
+	dec		c
+	ld		a, CHAR_EXPLOSION
+	inc		a
+	inc		a
+	inc		b
+	call 	print_char_at
+
+
+	ld		a, CHAR_EXPLOSION
+	inc		a
+	inc		a
+	inc		a
+	inc		c
+	call 	print_char_at
+
+	pop 	bc										; Restore BC registry from stack
+
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		a,(hl)
+	cp		1
+	call	z, print_explosion_2
+
+
+	ret
+print_explosion_2:
+	push	bc										; Backup BC registry to stack	
+
+	ld		a, CHAR_EXPLOSION
+	inc		a
+	inc		a
+	inc		a
+	inc     a
+	inc		c
+	inc		c
+	call 	print_char_at
+
+
+	ld		a, CHAR_EXPLOSION
+	inc		a
+	inc		a
+	inc		a
+	inc     a
+	inc		a
+	inc		b
+	call 	print_char_at
+
+	pop 	bc										; Restore BC registry from stack
+
+	ret
+remove_explosion:
+	; --> REMOVE EXPLOSION FROM SCREEN
+	; INPUT: C=Position X, Y=Position Y
+
+	push	bc										; Backup BC registry to stack	
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+
+	inc		b
+	dec		c
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+	pop 	bc										; Restore BC registry from stack
+
+
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		a,(hl)
+	cp		1
+	call	z, remove_explosion_2
+
+	ret
+remove_explosion_2:
+
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		(hl), 0										; Reset human explosion type
+
+	push	bc										; Backup BC registry to stack	
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+
+	inc		b
+	ld		a, CHAR_SPACE
+	call 	print_char_at
+
+	pop 	bc										; Restore BC registry from stack
+	ret
+
+
+
+game_over_lost:
+	; --> GAME OVER (LOST)
+	call	clear_all_humans
+
+	ld		hl, TXT_LOSE_1
+	ld		c, 34
+	ld		b, 21
+	call    print_string_at
+
+	ld		hl, TXT_LOSE_2
+	ld		c, 10
+	ld		b, 23
+	call    print_string_at
+
+	ld		hl, TXT_PLAY_AGAIN
+	ld		c, 27
+	ld		b, 25
+	call    print_string_at
+	jp 		waiting_enter_on_presentation
+
+game_over_win:
+	; --> GAME OVER (WIN)
+	call 	remove_human_ship
+	call	clear_all_humans
+
+	ld		hl, TXT_WIN_1
+	ld		c, 32
+	ld		b, 21
+	call    print_string_at
+
+	ld		hl, TXT_WIN_2
+	ld		c, 20
+	ld		b, 23
+	call    print_string_at
+
+	ld		hl, TXT_PLAY_AGAIN
+	ld		c, 27
+	ld		b, 25
+	call    print_string_at
+	jp 		waiting_enter_on_presentation
+clear_all_humans:
+	; --> CLEAR ALL CHARACTERS ON STATIC HUMANS SCREEN ROWS
+clear_all_humans_21:
+	ld		a, 0
+	ld		b, 21
+clear_all_humans_loop_21:
+	inc		a
+	ld		e, a
+	cp		78
+	jp		z, clear_all_humans_22
+	ld		c, a
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	jp		clear_all_humans_loop_21
+clear_all_humans_22:
+	ld		a, 0
+	ld		b, 22
+clear_all_humans_loop_22:
+	inc		a
+	ld		e, a
+	cp		78
+	jp		z, clear_all_humans_23
+	ld		c, a
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	jp		clear_all_humans_loop_22
+clear_all_humans_23:
+	ld		a, 0
+	ld		b, 23
+clear_all_humans_loop_23:
+	inc		a
+	ld		e, a
+	cp		78
+	jp		z, clear_all_humans_24
+	ld		c, a
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	jp		clear_all_humans_loop_23
+clear_all_humans_24:
+	ld		a, 0
+	ld		b, 24
+clear_all_humans_loop_24:
+	inc		a
+	ld		e, a
+	cp		78
+	jp		z, clear_all_humans_25
+	ld		c, a
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	jp		clear_all_humans_loop_24
+clear_all_humans_25:
+	ld		a, 0
+	ld		b, 25
+clear_all_humans_loop_25:
+	inc		a
+	ld		e, a
+	cp		78
+	ret		z
+	ld		c, a
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	jp		clear_all_humans_loop_25
+
+
+
+
+remove_human_ship:
+	; MODIFY: HL, DE, BC
+	ld		hl, HUMAN_SHIP_INFO
+	ld		(hl),0								; Set human ship visible flag to false
+	ld		a, 1								; Reset column counter
+remove_human_ship_loop:				
+	cp		78
+	ret		z									; end of remove ship action
+	push	de
+	push	bc
+	ld		e, a
+	ld		c, a
+	ld		b, 22
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	pop		bc
+	pop		de
+
+	push	de
+	push	bc
+	ld		e, a
+	ld		c, a
+	ld		b, 21
+	ld		a, CHAR_SPACE
+	call	print_char_at
+	ld		a, e
+	pop		bc
+	pop		de
+
+	inc		a
+	jp		remove_human_ship_loop
+	ret
+move_martians_bombs:
+	; --> MOVE MARTIANS BOMBS ON SCREEN
+	ld		hl, LOOP_COUNTER
+	ld		(hl), 0												; Reset counter
+
+move_martians_bombs_loops:
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)
+	cp		100
+	ret 	z 													; All bombs processed
+	ld		hl, MARTIAN_BOMBS									; Get first X element address of bombs array
+	call	add_8bit_16bit_values								; Get current X element address of bombs array
+	ld		a, 100												; Add 100 positions to X element address for to find Y element address
+	call	add_8bit_16bit_values
+	ld		a, (hl)												; Get current bomb Y position
+	cp		0
+	call	nz, move_martians_bombs_ok							; Move martians bomb
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)												; Get current bomb array index
+	inc		a													; Increment array index
+	ld		(hl), a												; Save new counter of array index position
+	jp 		move_martians_bombs_loops
+move_martians_bombs_ok:
+	ld		hl, LOOP_COUNTER	
+	ld		a, (hl)												; Get current array index
+	ld		hl, MARTIAN_BOMBS									; Get first X element address of bombs array
+	call	add_8bit_16bit_values								; Get current X element address of bombs array
+	ld		c, (hl)
+	ld		a, 100												; Add 100 positions to X element address for to find Y element address
+	call	add_8bit_16bit_values
+	ld		b, (hl)	
+	call	remove_martian_ship_bomb							; Remove bomb from actual position
+	ld		a, b
+	inc		a													; Increment Y position
+	ld		(hl), a												; Save new Y position in array
+	cp		26
+	jp		z, move_martians_bombs_clear_array					; Clear array for no printed bomb
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)
+	call	check_martian_ship_bomb_collision					; Collision verify
+	cp		1
+	ret		z													; Collision detected (exit without print bomb)
+	call	print_martian_ship_bomb
+	ret
+move_martians_bombs_clear_array:
+	ld		hl, LOOP_COUNTER	
+	ld		a, (hl)												; Get current array index
+	ld		hl, MARTIAN_BOMBS									; Get first X element address of bombs array
+	call	add_8bit_16bit_values								; Get current X element address of bombs array
+	ld		(hl), 0												; Reset X position
+	ld		a, 100												; Add 100 positions to X element address for to find Y element address
+	call	add_8bit_16bit_values
+	ld		(hl), 0												; Reset Y position
+	ret
+martian_bomb_fire_evaluation:
+	ld		hl, MARTIANS_SHIPS_INFO+22
+	ld		(hl), -1											; Reset martian ship counter	
+martian_bomb_fire_evaluation_loop:
+	ld		hl, MARTIANS_SHIPS_INFO+22
+	ld		a, (hl)												; Get martian ship counter	
+	inc		a													; Increase counter
+	cp		4
+	ret		z 													; Return after loop of all potential martians ships on screen
+	ld		hl, MARTIANS_SHIPS_INFO+22
+	ld		(hl), a												; Set martian ship counter	
+	ld		hl, MARTIANS_SHIPS_INFO+2
+	call	add_8bit_16bit_values
+	ld		a, (hl)
+	cp		0
+	jp		z, martian_bomb_fire_evaluation_loop				; No martian ship presen on screen with currend index
+	call	generate_new_random_martian_bomb_number				; Get random number
+	ld		hl, MARTIANS_SHIPS_INFO								; Get bomb fire ratio
+	cp		(hl)
+	call	c, martian_bomb_fire_evaluation_ok					; Fire bomb
+	jp		martian_bomb_fire_evaluation_loop
+martian_bomb_fire_evaluation_ok:
+	ld		hl, MARTIANS_SHIPS_INFO+22
+	ld		a, (hl)												; Get martian ship id	
+	ld		hl, MARTIANS_SHIPS_INFO+2
+	call	add_8bit_16bit_values
+	ld		c, (hl)												; Get X martian ship position												; Invalid X martian ship position
+	ld		hl, MARTIANS_SHIPS_INFO+22
+	ld		a, (hl)												; Get martian ship id
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	add_8bit_16bit_values
+	ld		b, (hl)												; Get Y martian ship position
+	call	martian_bomb_fire_evaluation_first_index_avaible
+	cp		100
+	ret		z 													; No free bomb array index found
+	inc		b													; Increase Y pos 2 times for display bomb under the ship
+	inc		b
+	inc 	c													; Increase X pos for display bomb at half ship position
+	call	upgrade_martian_bomb_position
+	call	print_martian_ship_bomb
+	ret
+
+martian_bomb_fire_evaluation_first_index_avaible:
+	push	bc
+	ld		a,0
+martian_bomb_fire_evaluation_first_index_avaible_loop:
+	cp		100
+	jp		z, martian_bomb_fire_evaluation_first_index_avaible_no_found
+	ld		c, a
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		a,(hl)
+	cp		0
+	jp		z, martian_bomb_fire_evaluation_first_index_avaible_loop_end
+	ld		a, c 
+	inc		a
+	jp		martian_bomb_fire_evaluation_first_index_avaible_loop
+martian_bomb_fire_evaluation_first_index_avaible_loop_end:
 	ld		a,c
+	pop		bc
+	ret
+martian_bomb_fire_evaluation_first_index_avaible_no_found:
+	ld		c, 100
+	jp 		martian_bomb_fire_evaluation_first_index_avaible_loop_end
+reset_martians_bombs_positions:
+	xor		a												; Reset counter
+	ld		hl, MARTIAN_BOMBS
+reset_martians_bombs_positions_loop:
+	cp		100
+	ret		z 												; All positions reset
+	push	af												; Backup AF registry to stack
+	push	hl												; Backup HL registry to stack
+	ld		(hl), 0
+	ld		a, 100
+	call	add_8bit_16bit_values
+	ld		(hl), 0
+	pop 	hl												; Restore HL registry from stack
+	pop 	af												; Restore AF registry from stack
+	inc		hl
+	inc    	a
+	jp		reset_martians_bombs_positions_loop
+remove_martian_ship_bomb:
+	; --> REMOVE MARTIAN SHIP BOMB
+	; 	  INPUT: C=X position, B=Y position
+	;	  MODIFY: AF						
+	ld		a, b
 	cp		0
-	jp		z, MartiansRefreshPositions_next
-	ld		hl, Counter
-	ld		a,(hl)
-	ld		hl,	MartiansDirectionChanged
-	call	Add8BitTo16Bit
-	ld		a,(hl)
+	ret		z								 ; No valid Y position
+	push	bc								; Backup BC registry to stack
+	ld		a, CHAR_SPACE
+	call	print_char_at					; Print space at bomb position
+	inc		c
+	ld		a, CHAR_SPACE					; Print space at bomb position (X+1)
+	call	print_char_at
+	pop		bc								; Restore BF registry from stack
+	ret
+print_martian_ship_bomb:
+	; --> PRINT MARTIAN SHIP BOMB
+	; 	  INPUT: A=ArrayPosition
+	push	bc								; Backup BC registry to stack
+	push	af								; Backup AF registry to stack
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		c,(hl)							; Get X position
+	pop 	af								; Restore AF registry from stack
+	add		a, 100
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		b,(hl)							; Get Y position
+	ld		a, b
 	cp		0
-	call	z, MartiansRefreshPositions_change_direction_verify
-	ld		hl, Counter
-	ld		a,(hl)
-	ld 		hl, MartiansShipsPositionY
-	call	Add8BitTo16Bit
-	ld		b,(hl)
-	ld		hl, Counter
-	ld		a,(hl)
-	ld		hl, MartiansShipsDirection
-	call	Add8BitTo16Bit
-	ld		d,(hl)
-	ld		hl, Counter
-	ld		e,(hl)
-	call	UpdateMartianShipArrayPosition
-	call	MoveMartianShip
-MartiansRefreshPositions_next:
-	ld		hl, Counter
-	ld		a,(hl)
+	jp		z, print_martian_ship_bomb_end ; No valid Y position
+	ld		a, CHAR_BOMB
+	call	print_char_at
+	inc		c
+	ld		a, CHAR_BOMB
+	inc		a
+	call	print_char_at
+print_martian_ship_bomb_end:
+	pop		bc							; Restore BF registry from stack
+	ret
+upgrade_martian_bomb_position:
+	; --> UPGRADE MARTIAN SHIP BOMB POSITION
+	;	  INPUT: C=Position X, B=Position Y, A=Array index
+	push	af								; Backup AF registry to stack
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		(hl), c							; Save X position
+
+	pop 	af								; Restore AF registry from stack
+	push	af								; Backup AF registry to stack
+
+	add		a, 100	
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	
+	ld		(hl), b							; Save Y position
+
+	pop 	af								; Restore AF registry from stack
+	ret
+draw_war_field_left_line:
+	ld    	c, 0
+	ld		b, 25
+draw_war_field_left_line_loop:
+	ld    	a, CHAR_VERTICAL
+	call  	print_char_at
+	dec		b
+	ld		a, b
+	cp		0
+	ret		z
+	jp		draw_war_field_left_line_loop
+draw_war_field_right_line:
+	ld    	c, 78
+	ld		b, 25
+draw_war_field_right_line_loop:
+	ld    	a, CHAR_VERTICAL
+	call  	print_char_at
+	dec		b
+	ld		a, b
+	cp		3
+	ret		z
+	jp		draw_war_field_right_line_loop
+	ret
+move_martians_ships:
+	ld		hl, MARTIANS_SHIPS_INFO+24
+	ld		a, (hl) 										; Get martians ships speed counter
+	inc		a												; Increment martian speed counter
+	ld		(hl), a											; Save new martian speed counter
+	ld		hl, MARTIANS_SHIPS_INFO+23						; Get martian ship speed
+	cp		(hl)
+	ret		nz												; No time to move
+
+	ld		hl, MARTIANS_SHIPS_INFO+24
+	ld		(hl), 0 										; Reset martians ships speed counter
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		(hl), 0											; Reset martians ship index
+	xor		a												; reset A registry
+move_martians_ships_loop:
+	cp		4
+	ret		z												; No more ships to move
+	ld 		hl, MARTIANS_SHIPS_INFO+6						
+	call	add_8bit_16bit_values
+	ld		b,(hl)											; Get Y position
+	ld		a,b
+	cp		0
+	jp		z, move_martians_ships_next
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+14						
+	call	add_8bit_16bit_values
+	ld		a,(hl)											; Get if direction is changhed
+	cp		0
+	call	z, move_martians_ships_change_direction_verify
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+2						
+	call	add_8bit_16bit_values
+	ld		c,(hl)											; Get X position
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+10						
+	call	add_8bit_16bit_values
+	ld		d,(hl)											; Get current direction
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	call	move_martians_ships_execute						; move ship
+	
+	call	update_martian_ship_position_info				; Put new coordinates into info array
+
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld		hl, MARTIANS_SHIPS_INFO+18						
+	call	add_8bit_16bit_values
+	ld		d, (hl)											; Get martians ship type
+
+	call	move_martian_ship_change_type					; change ship type
+
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld		hl, MARTIANS_SHIPS_INFO+18						
+	call	add_8bit_16bit_values
+	ld		(hl), d											; Set martians ship type
+
+	
+	call	print_martian_ship
+move_martians_ships_next:
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
 	inc 	a
-	ld		(hl),a
-	jp		MartiansRefreshPositions_loop
-MartiansRefreshPositions_end:
-	ret 
-MartiansRefreshPositions_change_direction_verify:
+	ld		(hl), a											; Save new martians ship index
+	jp		move_martians_ships_loop
+move_martian_ship_change_type:
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld		hl, MARTIANS_SHIPS_INFO+18									
+	call	add_8bit_16bit_values		
+	ld		a, (hl)											; Get martian ship type from array index found
+
+	cp		CHAR_MARTIAN_SHIP_1_A
+	jp		z, move_martian_ship_change_type_1_B
+	cp		CHAR_MARTIAN_SHIP_1_B
+	jp		z, move_martian_ship_change_type_1_A
+	cp		CHAR_MARTIAN_SHIP_2_A
+	jp		z, move_martian_ship_change_type_2_B
+	cp		CHAR_MARTIAN_SHIP_2_B
+	jp		z, move_martian_ship_change_type_1_B
+	cp		CHAR_MARTIAN_SHIP_3_A
+	jp		z, move_martian_ship_change_type_3_B
+	cp		CHAR_MARTIAN_SHIP_3_B
+	jp		z, move_martian_ship_change_type_3_A
+
+move_martian_ship_change_type_1_A:
+	ld		d, CHAR_MARTIAN_SHIP_1_A
+	ret
+move_martian_ship_change_type_1_B:
+	ld		d, CHAR_MARTIAN_SHIP_1_B
+	ret
+move_martian_ship_change_type_2_A:
+	ld		d, CHAR_MARTIAN_SHIP_2_A
+	ret
+move_martian_ship_change_type_2_B:
+	ld		d, CHAR_MARTIAN_SHIP_2_B
+	ret
+move_martian_ship_change_type_3_A:
+	ld		d, CHAR_MARTIAN_SHIP_3_A
+	ret
+move_martian_ship_change_type_3_B:
+	ld		d, CHAR_MARTIAN_SHIP_3_B
+	ret
+move_martians_ships_change_direction_verify:
 	ld		a, c
 	cp		20
-	jp		z,MartiansRefreshPositions_change_direction_evaluation
+	jp		z,move_martians_ships_change_direction_pre_evaluation
 	cp		35
-	jp		z,MartiansRefreshPositions_change_direction_evaluation
+	jp		z,move_martians_ships_change_direction_pre_evaluation
 	cp		42
-	jp		z,MartiansRefreshPositions_change_direction_evaluation
+	jp		z,move_martians_ships_change_direction_pre_evaluation
 	cp		63
-	jp		z,MartiansRefreshPositions_change_direction_pre_evaluation
+	jp		z,move_martians_ships_change_direction_pre_evaluation
 	ret
-MartiansRefreshPositions_change_direction_pre_evaluation:
+move_martians_ships_change_direction_pre_evaluation:
 	ld		a, b
 	cp		2
 	ret		z
-MartiansRefreshPositions_change_direction_evaluation:
-	call	GenerateRandomNumber
+move_martians_ships_change_direction_evaluation:
+	call	generate_new_random_number
 	cp		50
 	ret		nc
-	ld		hl, Counter
-	ld		a,(hl)
-	ld		hl,	MartiansDirectionChanged
-	call	Add8BitTo16Bit
-	ld		(hl),1
-	ld		hl, Counter
-	ld		a,(hl)
-	ld		hl,	MartiansShipsDirection
-	call	Add8BitTo16Bit
-	ld		a,(hl)
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+14						
+	call	add_8bit_16bit_values
+	ld		(hl),1											; Update flag direction changed
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+10
+	call	add_8bit_16bit_values							
+	ld		a,(hl)											; Get actual direction
 	cp		1
-	call	z, MartiansRefreshPositions_change_direction_change_left
-	call	nz, MartiansRefreshPositions_change_direction_change_right
-	ld		(hl),a
+	call	z, move_martians_ships_change_direction_change_left
+	call	nz, move_martians_ships_change_direction_change_right
 	ret
-MartiansRefreshPositions_change_direction_change_left:
-	ld		a, 2
+move_martians_ships_change_direction_change_left:
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+10
+	call	add_8bit_16bit_values		
+	ld		(hl), 2											; Update martian ship direction
 	ret
-MartiansRefreshPositions_change_direction_change_right:
-	ld		a, 1
+move_martians_ships_change_direction_change_right:
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index
+	ld 		hl, MARTIANS_SHIPS_INFO+10
+	call	add_8bit_16bit_values		
+	ld		(hl), 1											; Update martian ship direction
 	ret
-MoveMartianShip:
-	; INPUT: C=Position X, B=Position Y, D=Direction, E=ArrayPosition
+
+move_martians_ships_execute:
 	ld		a,d
 	cp		2
-	jp		z, MoveMartianShip_move_to_right
+	jp		z, move_martians_ships_execute_to_right
+move_martians_ships_execute_to_left:
+	dec		c												; Decrement X position
 	ld		a,c
 	cp		0
-	dec		c
-	jp		z, MoveMartianShip_remove
-	push	bc
-	call	UpdateMartianShipArrayPosition
-	call	ChangeMartianType
-	call    ShowMartianShip
-	pop		bc
-	call	MartianShipFireManagement
+	jp		z, move_martians_ships_execute_remove			; Remove ship because it is on left limit
 	ret
-MoveMartianShip_move_to_right:
-	ld		d,74
+move_martians_ships_execute_to_right:	
+	ld		d,74											; Right limit X position to check
 	ld		a,b
 	cp		2
-	call	z, MoveMartianShip_move_to_right_change
+	call	z, move_martians_ships_execute_to_right_change	; If Y position is 2 the X right limit become 58
 	ld		a,c
-	cp		d
-	jp		z, MoveMartianShip_remove
-	inc		c
-	call	UpdateMartianShipArrayPosition
-	call	ChangeMartianType
-	call	ShowMartianShip
+	cp		d	
+	jp		z, move_martians_ships_execute_remove			; Remove ship because it is on right limit
+	inc		c												; Increase X position
 	ret
-MoveMartianShip_move_to_right_change:
+move_martians_ships_execute_to_right_change:
 	ld		d, 58
 	ret
-MoveMartianShip_remove:
-	call	RemoveMartianShip
+move_martians_ships_execute_remove:
+	call	remove_martian_ship
 	ld		c,0
 	ld		b,0
-	call	UpdateMartianShipArrayPosition
-
 	ret
-UpdateMartianShipArrayPosition:
-	; INPUT: e=ArrayPosition, c=PositionX, b=PositionY
-	push	bc 
-	push	hl
-	ld 		hl, MartiansShipsPositionX
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),c
-	ld 		hl, MartiansShipsPositionY
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),b
-	pop		hl
-	pop		bc
+remove_martian_ship:
+	; --> REMOVE MARTIAN SHIP FROM SCREEN
+	; 	  INPUT: c=Pos X, b=Pos Y
+	;     MODIFY: AF
+	push	bc											; Backup BC registry to stack
+	ld		a, CHAR_SPACE							
+	call	print_char_at								; Remove position 1_1
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 1_2
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 1_3
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 1_4
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 1_4+1
+	inc		b
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_4+1
+	dec		c
+	ld		a, CHAR_SPACE								
+	call	print_char_at								; Remove position 2_4
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_3
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_2
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_1
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_1-1
+	dec		b
+	ld		a, CHAR_SPACE
+	call	print_char_at								; Remove position 2_1-1
+	ld		hl, MARTIANS_SHIPS_INFO+1
+	ld		a, (hl)
+	dec		a
+	ld		(hl), a										; Decrement amount of showed ships
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)										; Get martians ship index
+	ld		hl, MARTIANS_SHIPS_INFO+14
+	call	add_8bit_16bit_values
+	ld		(hl), 0										; Reset flag change direction
+	pop 	bc											; Restore BC registry from stack
 	ret
-ChangeMartianType:
-	; INPUT: E=ArrayPosition
-	; OUPUT: D=Ship type
-	ld		hl, MartiansShipType
-	ld		a, e
-	call	Add8BitTo16Bit
+update_martian_ship_position_info:
+	; --> UPDATE MARTIAN SHIP POSITION INFO
+	;     INPUT: A=Array index, B=Position Y, C=Position X
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship index										; Put counter into stack
+	ld 		hl, MARTIANS_SHIPS_INFO+6						
+	call	add_8bit_16bit_values
+	ld		(hl), b
+	ld		hl, MARTIANS_SHIPS_INFO+22						
+	ld		a, (hl)											; Get martians ship inremove_martian_shipdex
+	ld 		hl, MARTIANS_SHIPS_INFO+2						
+	call	add_8bit_16bit_values
+	ld		(hl), c											; Get X position
+	ret
+get_first_free_martian_ship_aray_index:
+	; --> GET FIRST FREE MARTIAN SHIP ARRAY POSITION
+	;     OUTPUT: A=position found
+	;     MODIFY: AF
+	push	hl															; Backup HL registry to stack
+	ld		a,0
+get_first_free_martian_ship_aray_index_loop:
+	push	af															; Put AF registry to stack for save the counter
+	ld		hl, MARTIANS_SHIPS_INFO+2
+	call	add_8bit_16bit_values
 	ld		a,(hl)
-	cp		MartianShip1a
-	jp		z, ChangeMartianType_MartianShip1a
-	cp		MartianShip1b
-	jp		z, ChangeMartianType_MartianShip1b
-	cp		MartianShip2a
-	jp		z, ChangeMartianType_MartianShip2a
-	cp		MartianShip2b
-	jp		z, ChangeMartianType_MartianShip2b
-	cp		MartianShip3a
-	jp		z, ChangeMartianType_MartianShip3a
-	cp		MartianShip3b
-	jp		z, ChangeMartianType_MartianShip3b
-ChangeMartianType_MartianShip1a:
-	ld 		d,MartianShip1b
-	jp		ChangeMartianType_Update
-ChangeMartianType_MartianShip1b:
-	ld 		d,MartianShip1a
-	jp		ChangeMartianType_Update
-ChangeMartianType_MartianShip2a:
-	ld 		d,MartianShip2b
-	jp		ChangeMartianType_Update
-ChangeMartianType_MartianShip2b:
-	ld 		d,MartianShip2a
-	jp		ChangeMartianType_Update
-ChangeMartianType_MartianShip3a:
-	ld 		d,MartianShip3b
-	jp		ChangeMartianType_Update
-ChangeMartianType_MartianShip3b:
-	ld 		d,MartianShip3a
-	jp		ChangeMartianType_Update
-ChangeMartianType_Update:
-	ld		hl, MartiansShipType
-	ld		a, e
-	call	Add8BitTo16Bit
-	ld		(hl),d
+	cp		0
+	jp		z, get_first_free_martian_ship_aray_index_loop_end
+	pop		af															; Restore AF for to retrieve the counter
+	inc		a
+	jp		get_first_free_martian_ship_aray_index_loop
+get_first_free_martian_ship_aray_index_loop_end:
+	pop		af															; Restore AF for to retrieve the counter
+	pop		hl															; Restore HL registry from stack
 	ret
+ 
+new_martian_ship_to_show_evaluation:
+	; --> NEW MARTIAN SHIP TO SHOW EVALATION
+	;	  MODIFY: DE, HL, BC, AF
+	ld		hl, MARTIANS_SHIPS_INFO+1							; Get number of martians ships displayed
+	ld		a, (hl)
+	
+	ld		hl, MARTIANS_COUNTER
+	cp		(hl)
+	
+	ret		nc															; return because remain martians ships are less 
 
-ResetFiredMissilesPositions:
-	; MODIFY: A, HL
-	ld		a,0
-	ld		hl, MissilesPosX
-ResetFiredMissilesPositions_xloop:
+	ld		a,	r
+	cp		6
+	ret		nc															; No new martian ship needed to display
+	
+	call 	get_first_free_martian_ship_aray_index
+
+	ld		c, 74														; New martian ship start position
+	ld		d, 1														; New martian ship start direction from right
+	call	generate_new_random_number
+	cp		125
+	call	nc, new_martian_ship_to_show_evaluation_from_left			; Change new martian ship start position and direction
+
+	call 	get_first_free_martian_ship_aray_index						; Get free array index
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+10									
+	call	add_8bit_16bit_values
+	ld		(hl),d														; Put direction into array index found
+	pop		af															; Restore array index found
+	push	af															; Save array index found												
+	ld		d, 0
+	call	generate_new_random_number									; Type of martians ship to show determination
+	cp		255
+	call	c, new_martian_ship_to_show_evaluation_ship_1
+	cp		150
+	call	c, new_martian_ship_to_show_evaluation_ship_2
+	cp		80
+	call	c, new_martian_ship_to_show_evaluation_ship_3
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+18									
+	call	add_8bit_16bit_values		
+	ld		(hl), d														; Put martian ship type into array index found
+
+	call	generate_new_random_number 									; Y position of martians ship to show determination
+	ld		b,2
+	cp		200
+	call	c, new_martian_ship_to_show_evaluation_row_4				; Row 4 selected
+	cp		150
+	call	c, new_martian_ship_to_show_evaluation_row_6				; Row 6 selected
+	cp		100
+	call	c, new_martian_ship_to_show_evaluation_row_8				; Row 8 selected
 	cp		50
-	jp		z, ResetFiredMissilesPositions_xend
-	ld		(hl),0	
-	inc		hl
-	inc 	a
-	jp 		ResetFiredMissilesPositions_xloop
-ResetFiredMissilesPositions_xend:
-	ld		a,0
-	ld		hl, MissilesPosY
-ResetFiredMissilesPositions_yloop:
-	cp		50
-	jp		z, ResetFiredMissilesPositions_yend
-	ld		(hl),0	
-	inc		hl
-	inc     a
-	jp 		ResetFiredMissilesPositions_yloop
-ResetFiredMissilesPositions_yend:
+	call	c, new_martian_ship_to_show_evaluation_row_10				; Row 10 selected
+
+	
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+10									
+	call	add_8bit_16bit_values
+	ld		d,(hl)														; Get direction from array index found (because if row is busy and new proposed row changed to 2 the start position will be from left)
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+
+	call	new_martian_ship_to_show_evaluation_ver_pos					; Change Y position if it's busy from another ship
+	
+	ld		a, b
+	cp		2
+	jp		z, new_martian_ship_to_show_valid_row	
+	cp		4
+	jp		z, new_martian_ship_to_show_valid_row	
+	cp		6
+	jp		z, new_martian_ship_to_show_valid_row	
+	cp		8
+	jp		z, new_martian_ship_to_show_valid_row	
+	cp		10
+	jp		z, new_martian_ship_to_show_valid_row	
+	jp		new_martian_ship_to_show_invalid_row						; No valid row for martian ship
+new_martian_ship_to_show_valid_row:
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+2									
+	call	add_8bit_16bit_values		
+	ld		(hl), c														; Put X position into array index found
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+6									
+	call	add_8bit_16bit_values		
+	ld		(hl), b														; Put Y position into array index found
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+10									
+	call	add_8bit_16bit_values		
+	ld		(hl), d														; Put direction from array index found
+	pop		af															; Restore array index found
+	push	af															; Save array index found
+	ld		hl, MARTIANS_SHIPS_INFO+18									
+	call	add_8bit_16bit_values		
+	ld		d, (hl)														; Get martian ship type from array index found
+	pop		af															; Restore array index found
+	call	print_martian_ship
+	ld		hl, MARTIANS_SHIPS_INFO+1
+	ld		a, (hl)														; Get number of martians ships on screen
+	inc		a															; Increment number of martians ships on screen
+	ld		(hl), a														; Save new number of martians ships on screen
+	ret								
+new_martian_ship_to_show_evaluation_from_left:
+	ld		c, 1														; New martian ship start position
+	ld		d, 2														; New martian ship start direction from left
 	ret
-Add8BitTo16Bit:
-	; INPUT: HL=destination registry, A=Value to add
+new_martian_ship_to_show_evaluation_ship_1:
+	ld d, CHAR_MARTIAN_SHIP_1_A
+	ret
+new_martian_ship_to_show_evaluation_ship_2:
+	ld d, CHAR_MARTIAN_SHIP_2_A
+	ret
+new_martian_ship_to_show_evaluation_ship_3:
+	ld d, CHAR_MARTIAN_SHIP_3_A
+	ret
+new_martian_ship_to_show_evaluation_row_4:
+	ld		b, 4
+	ret
+new_martian_ship_to_show_evaluation_row_6:
+	ld		b, 6
+	ret
+new_martian_ship_to_show_evaluation_row_8:
+	ld		b, 8
+	ret
+new_martian_ship_to_show_evaluation_row_10:
+	ld		b, 10
+	ret
+new_martian_ship_to_show_evaluation_ver_pos:
+	ld		a,	0
+new_martian_ship_to_show_evaluation_ver_pos_loop:
+	cp		4
+	jp		z,new_martian_ship_to_show_evaluation_ver_pos_row2			; Proposed Y position is free
+	push	af															; Backup conter to stack
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	add_8bit_16bit_values
+	ld		a, (hl)
+	cp		b
+	jp		z, new_martian_ship_to_show_evaluation_ver_pos_busy			; Proposed Y position is busy
+	pop		af															; Restore counter from stack
+	inc		a
+	jp 		new_martian_ship_to_show_evaluation_ver_pos_loop
+new_martian_ship_to_show_evaluation_ver_pos_busy:
+	pop		af															; Restore counter from stack
+	ld		a, 0					
+new_martian_ship_to_show_evaluation_ver_pos_busy_loop:	
+	push	af															; Backup conter to stack	
+	ld		e, a																			
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	add_8bit_16bit_values
+	ld		a, (hl)
+	cp		0
+	jp		z, new_martian_ship_to_show_evaluation_ver_pos_busy_end		; Avaible free Y position found
+	pop		af															; Restore counter from stack
+	inc		a
+	jp 		new_martian_ship_to_show_evaluation_ver_pos_busy_loop
+new_martian_ship_to_show_evaluation_ver_pos_busy_end:
+	ld		b, e
+	pop		af															; Restore counter from stack
+	ld		a, 2
+	cp		b
+	ret		nz															; if not new proposet Y position is equals 2 then it's valid
+	ld		d, 2														; Force direction for row 2 from left
+new_martian_ship_to_show_evaluation_ver_pos_row2:
+	ld		a, b
+	cp		2
+	ret		nz															; If not Y is 2 each X position is ok
+	ld		a, c
+	cp		1
+	ret		z															; If not Y is 2 and X=1 position is ok
+	ld		c, 58														; Set X position on row 2 for direction from right
+	ret
+new_martian_ship_to_show_invalid_row:
+	pop		af
+	ret
+add_8bit_16bit_values:
+	; --> ADD 8 BIT REGISTRY VALUE TO A 16 BIT REGISTRY VALUE
+	; 	  INPUT: HL=destination registry, A=Value to add
 	add   a, l   
 	ld    l, a    
 	adc   a, h    
 	sub   l       
 	ld    h, a    
 	ret
-ScreenRefresh:
-	ld		hl, MissilesRefreshPositionTime
-	ld		a,(hl)
-	cp		1
-	jp		z, ScreenRefresh_refresh
-	ld		hl, MissilesRefreshPositionTime
-	dec		a
-	ld		(hl),a
+print_martian_ship:
+	; INPUT: c=Pos X, b=Pos Y, d=First character code
+	; MODIFY: AF
 
-	ld		de,2
-	ld		hl, (HumanShipStopTime)
-	or a 
-	sbc hl, de
-	add hl, de
-	jp		z, ScreenRefresh_set_human_ship_visible
-	dec		hl
-	ld		(HumanShipStopTime),hl
-	ret
-ScreenRefresh_set_human_ship_visible:
-	ld		hl, HumanShipVisible
-	ld		a,(hl)
-	cp		1
-	ret		z
-	ld		hl, HumanShipStopTimeCicle
-	ld		a, (hl)
-	dec		a
-	ld		(hl),a
-	cp		255
-	jp		nz, ScreenRefresh_set_human_ship_visible_cicle
-	call   PrintHumanShip
-	ld		hl, HumanShipVisible
-	ld		(hl),1
-	call	PrintHumanShip
-	ret
-ScreenRefresh_set_human_ship_visible_cicle:
-	ld		hl, HumanShipStopTimeCicle
-	ld		a, (hl)
-	dec		a
-	ld		(hl),a
-	ld		bc, 30000
-	ld		(HumanShipStopTime),bc
-	ret
-ScreenRefresh_refresh:
-	ld		hl, MissilesRefreshPositionTime
-	ld		a, 255
-	ld		(hl),a
-	ld		a,0
-ScreenRefresh_loop:
-	cp		1						; *** Set HERE HOW MANY SHOTS (+1) ARE POSSIBLE FROM HUMAN SHIP ***
-	jp		z,	ScreenRefresh_exit		; 
-	ld		d, a				; Memorizzo in d la posizione corrente
-	call	GetMissileLocationByArrayPosition			; Trovo X e Y della posizione corrente
-	ld		a, b				; Verifico che X corente non sia zero
-	cp		0
-	jp		z, ScreenRefresh_next
-	ld		a, d				; Ripristino in A la posizione corrente
-	push	de
-	push	bc					; Metto nello stack BC (con X e Y correnti)
-	ld		d, 32				; Pulisco video in X e Y
-	call	PrintCharacterAtPosition
-	pop		bc					; Recupero dallo stack BC (con X e Y correnti)
-	push	bc					; Metto nello stack BC (con X e Y correnti)
-	inc		c					; Icremento c per puntare alla X affiancata
-	ld		d, 32				; Pulisco la posizione X,Y affiancata
-	call	PrintCharacterAtPosition
-	pop		bc					; Recupero dallo stack BC (con X e Y correnti)
-	ld		d, a				; Memorizzo in D la posizione corrente
-	ld		a, c				; Metto in A la posizione X da testare
-	push	bc
-	call	GetFirstGameAreaRow ; Trovo massimo bordo in alto
-	ld		a,b
-	cp		c					
-	pop		bc
-	pop		de
-	jp		z, ScreenRefresh_clear	; Se ho raggiunto la posizione massima in alto non scrivo più nulla
-	push	de
-	push	bc
-	dec		b
-	ld		d, HumanMissile				
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-	push	de
-	push	bc
-	dec		b
-	inc		c
-	ld		d, HumanMissile
-	inc		d				
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-	dec		b
-	call  	SetMissileLocationAtArrayPosition
-	push	bc
-	push	de
-	call	CheckHumanShipMissileOnTarget
-	call	DrawInfoBox
-	pop		de
-	pop		bc
-ScreenRefresh_next:
-	ld		a, d
-	inc		a
-	inc		hl
-	jp		ScreenRefresh_loop
-ScreenRefresh_clear
-	ld		b, 0
-	ld		c, 0
-	call  	SetMissileLocationAtArrayPosition
-	jp		ScreenRefresh_next
-ScreenRefresh_exit
+
+
+	push	hl													; Backup HL registry to stack
+	push	de													; Backup DE registry to stack
+	push	bc													; Backup BC registry to stack
+
 	
-	ld		hl, MartiansShipsSpeed
+	ld		a, c
+	cp		0
+	jp		z, print_martian_ship_end							; Invalid X position
+
+	ld		a, b
+	cp		0
+	jp		z, print_martian_ship_end							; Invalid Y position
+
+	dec		c
+	ld		a, CHAR_SPACE										; Clear space before
+	call	print_char_at
+
+	inc		b
+	ld		a, CHAR_SPACE										; Clear space before
+	call	print_char_at
+
+	dec		b													; Restore initial Y coordinate
+	inc		c													; Restore initial X coordinate
+
+	inc		c
+	inc		c
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE										; Clear space after
+	call	print_char_at
+
+	inc		b
+	ld		a, CHAR_SPACE										; Clear space after
+	call	print_char_at
+
+	dec		b													; Restore initial Y coordinate
+	dec		c
+	dec		c
+	dec		c
+	dec		c													; Restore initial X coordinate
+
+	
+
+
+	ld		a, d
+	call	print_char_at										; Print character 1_1 of martian ship
+
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 2_1 of martian ship
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 3_1 of martian ship
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 4_1 of martian ship
+
+
+	inc     d
+	dec		c
+	dec		c
+	dec		c
+	inc		b
+	ld		a, d
+	call	print_char_at										; Print character 2_1 of martian ship
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 2_2 of martian ship
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 2_3 of martian ship
+
+	inc     d
+	inc		c
+	ld		a, d
+	call	print_char_at										; Print character 2_4 of martian ship
+
+print_martian_ship_end:
+	call	draw_war_field_left_line							; Restore left vertical borders
+	call	draw_war_field_right_line							; Restore right vertical borders
+	call	draw_war_field_info_box								; Restore info box borders
+
+	pop		bc													; Restore HL registry from stack
+	pop		de													; Restore DE registry from stack
+	pop		hl													; Restore BC registry from stack
+	ret
+
+generate_new_random_number:
+	; --> GENERATE A RANDOM NUMBER
+	; OUTPUT: A=Generated random number (0<=a<=255)
+	; MODIFY: AF
+	push	bc
+	ld		a,(RANDOM_SEED)
+	ld		b, a
+	add		a, a
+	add		a, a
+	add		a, b
+	inc		a
+	ld		(RANDOM_SEED),a
+	pop	bc
+	ret
+generate_new_random_martian_bomb_number:
+	; --> GENERATE A RANDOM NUMBER (FOR MARTIAN SHIP FIRE EVALUATION ONLY
+	; OUTPUT: A=Generated random number (0<=a<=255)
+	; MODIFY: AF
+	push	bc
+	ld		a, r
+	ld		b, a
+	add		a, a
+	add		a, a
+	add		a, b
+	inc		a
+	pop	bc
+	ret
+reset_matians_info:
+	; --> RESET ALL SHIPS MARTINS INFO
+	;     MODIFY: AF, HL
+	ld		hl, MARTIANS_SHIPS_INFO
+	ld		a, 0
+reset_matians_info_loop:
+	cp		25
+	ret		z
+	ld		(hl), 0
+	inc		hl
+	inc 	a
+	jp		reset_matians_info_loop
+move_human_ship_bomb:
+	; --> MOVE HUMAN SHIP BOMB
+	;     MODIFY: BC, HL, AF
+	 
+	call    move_human_ship_bomb_detect_top_side
+	cp		0
+	jp		z, move_human_ship_bomb_x							
+	call	remove_human_ship_bomb								; Bomb arrived to top of screen and its removing needed
+	ld		hl, HUMAN_SHIP_INFO+6								
+	ld		(hl), 0												; Reset human ship bomb current X position
+	ld		hl, HUMAN_SHIP_INFO+7								
+	ld		(hl), 0												; Reset human ship bomb current Y position
+	ld		hl, HUMAN_SHIP_INFO+3								
+	ld		(hl), 1												; Set human ship "can fire" flag status to true
+	ret
+move_human_ship_bomb_x:
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		b, (hl) 											; Get human ship bomb current Y position
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		c, (hl)												; Get human ship bomb current X position
+	ld		a, b
+	cp		0
+	ret		z													; No valid X position
+	call	check_human_ship_bomb_collision						; Collision detecting
+	cp		CHAR_SPACE
+	ret		nz													; Bomb destroyed
+	call	remove_human_ship_bomb								; Remove human ship bomb from current position											; Decrement bomb Y position
+	ld		hl, HUMAN_SHIP_INFO+7								
+	ld		(hl), b												; Save human ship bomb current Y position
+	call	print_human_ship_bomb								; Print human ship bomb into a new position
+	ret
+move_human_ship_bomb_detect_top_side:
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		a, (hl) 											; Get human ship bomb current Y position
+	cp		1
+	ret		z													; Top border detected
+	cp		4
+	jp		nz, move_human_ship_bomb_detect_top_side_end		; Not in info box top level
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		a, (hl) 											; Get human ship bomb current X position
+	cp		63
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		64
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		65
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		66
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		67
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		68
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		69
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		70
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		71
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		72
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		73
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		74
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		75
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		76
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+	cp		77
+	jp		z, move_human_ship_bomb_detect_top_side_detected		; It's a info box top level
+move_human_ship_bomb_detect_top_side_end:
+	ld		a, 0												; No top border detected
+	ret
+move_human_ship_bomb_detect_top_side_detected:
+	ld		a, 1												; Top border detected
+	ret
+check_human_ship_bomb_collision:
+	; --> HUMAN SHIP BOMB COLLISION DETECTION
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		c, (hl)												; Get human bomb X position
+	ld		a, c
+	cp		0
+	ret     z													; No human ship bomb present on screen
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		b, (hl)												; Get human bomb Y position
+	dec		b													; Check next Y position
+	call	read_char_at
+	cp		CHAR_SPACE
+	ret		z													; No collision detected
+	cp		CHAR_BOMB									
+	jp		z, check_human_ship_bomb_collision_mrtz_bomb		; Collision with martian bomb detected
+	ld		hl, LOOP_COUNTER
+	ld		(hl), 0												; Reset martian ships counter
+check_human_ship_bomb_collision_martian_ship_loop:
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)
+	cp		4
+	ret		z													; Martian ship not found (why????)
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	add_8bit_16bit_values
+	ld		a, (hl)		
+	inc		a													; Get martian ship Y-1 position
+	cp		b
+	jp		z, check_human_ship_bomb_collision_martian_ship		; Remove martian ship
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)												; Put current counter in A registry
+	inc 	a													; A registry increment
+	ld		(hl), a												; Update corrent counter
+	jp 		check_human_ship_bomb_collision_martian_ship_loop
+	
+check_human_ship_bomb_collision_martian_ship:
+	push	bc													; Backup BC registry to stack
+	
+	ld		hl, LOOP_COUNTER									; Get martian ship array index
+	ld		a, (hl)												; Put martian ship array index in A registry
+	ld		hl, MARTIANS_SHIPS_INFO+2
+	call	add_8bit_16bit_values
+	ld		c, (hl)												; Get martian ship X position
+	ld		(hl), 0												; Reset martian ship X position
+	ld		hl, LOOP_COUNTER
+	ld		a, (hl)												; Get martian ship array index
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	add_8bit_16bit_values
+	ld		b, (hl)												; Get martian ship Y position
+	ld		(hl), 0												; Reset martian ship Y position
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	call	remove_martian_ship									; Remove martian ship
+	ld		hl, MARTIANS_SHIPS_INFO+6
+	pop		bc													; Restore BC registry from stack
+	call	print_explosion
+	ld		hl, MARTIANS_COUNTER
+	ld		a, (hl)												; Get martian ships counter
+	dec		a													; Decrease martians ships counter
+	ld		(hl), a												; Save new martians ship counter
+	call	refresh_martians_counter							; Refresh screen martians ships info
+
+check_human_ship_bomb_collision_end:
+	call	remove_human_ship_bomb
+	ld		hl, HUMAN_SHIP_INFO+3
+	ld		(hl), 1												; Set human ship fire flag enabled to true
+	call	print_explosion
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		(hl), 0												; Reset human bomb X position
+	ld		hl, HUMAN_SHIP_INFO+7								; Reset human bomb Y position
+	ld		(hl), 0				
+	ret
+check_human_ship_bomb_collision_mrtz_bomb:				
+	call	remove_human_ship_bomb								; Remove human bomb
+	ld		hl, BOMB_COUNTER
+	ld		(hl), 0												; Reset martian bombs index
+check_human_ship_bomb_collision_mrtz_bomb_loop:
+	ld		hl, BOMB_COUNTER
+	ld		a, (hl)												; Get current martian bomb index
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		e, (hl)												; Get current martian bomb X position
+	ld		hl, BOMB_COUNTER
+	ld		a, (hl)												; Get current martian bomb index
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		a, 100
+	call	add_8bit_16bit_values
+	ld		d, (hl)												; Get current martian bomb Y position
+
+	ld		hl, bc												; Human bomb positions in HL
+	or 		a 													; Compare human bomb position (BC) with martian bomb position (HL)
+	sbc 	hl, de
+	add 	hl, de
+	jp		z, check_human_ship_bomb_collision_mrtz_bomb_expl	; Print explosion and remove martian bomb
+	ld		hl, BOMB_COUNTER
+	ld		a, (hl)												; Get current martian bomb index
+	inc		a													; Increment martian bomb index
+	ld		(hl), a												; Save new martian bomb index
+	jp		check_human_ship_bomb_collision_mrtz_bomb_loop
+
+check_human_ship_bomb_collision_mrtz_bomb_expl:
+	push	bc													; Backup BC registry to stack
+	push	hl
+	pop		bc													; Put martian bomb position to BC registry
+	call	remove_martian_ship_bomb							; Remove martian bomb
+	pop		bc													; Restore BC registry from stack
+
+	ld		hl, BOMB_COUNTER
+	ld		a, (hl)												; Get current martian bomb index
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		(hl), 0												; Reset current martian bomb X position
+	ld		hl, BOMB_COUNTER
+	ld		a, (hl)												; Get current martian bomb index
+	ld		hl, MARTIAN_BOMBS
+	call	add_8bit_16bit_values
+	ld		a, 100
+	call	add_8bit_16bit_values
+	ld		(hl), 0												; Reset current martian bomb Y position
+
+	call	print_explosion										; Show explosion
+	jp 		check_human_ship_bomb_collision_end
+check_martian_ship_bomb_collision:
+	; --> MARTIAN SHIP BOMB COLLISION DETECTION
+	;     INPUT: A=martian ship bomb array index
+	; 	  OUTPUT: A=status (1=Collision detected, 0=Collision not detected)
+	push	de													; Backup DE registry to stack
+	ld		(LOOP_COUNTER), a									; Save array index to E registry
+	push	bc													; Backup BC registry to stack
+	push	af													; Backup AF registry to stack
+	ld		hl, MARTIAN_BOMBS									; Get first X element address of bombs array
+	call	add_8bit_16bit_values								; Get current X element address of bombs array
+	ld		c, (hl)												; Get bomb X position
+	ld		a, 100												; Add 100 positions to X element address for to find Y element address
+	call	add_8bit_16bit_values
+	ld		b, (hl)												; Get bomb Y position
+	ld		a, 6												; Put in A registry the character width points 
+	ld		h, c												; Put in H registry the bomb X position
+	call	mult_8bit_values
+	inc		hl													; Add 4 points to bomb X position because the bomb char has the first 4 points empty
+	inc		hl
+	inc		hl
+	inc		hl										
+	ld		(MARTIAN_BOMB_COLLISIONS_CHECK), hl					; Save X bomb screen point 
+	ld		a, 8												; Put in A registry the character width points 
+	ld		h, b												; Put in H registry the bomb Y position
+	call	mult_8bit_values									; Put Y bomb screen point in HL registry
+	inc		hl													; Add 1 point to bomb Y position because the bomb char has the first point empty
+	ld		(MARTIAN_BOMB_COLLISIONS_CHECK+1), hl							; Save Y bomb screen point
+	ld		a, b												; Put bomb Y position to A registry for cases evaluation
+	cp		23
+	jp		z, check_martian_ship_bomb_collision_human			; The bomb is in human zone
+	cp		24
+	jp		z, check_martian_ship_bomb_collision_human			; The bomb is in human zone
+	cp		25
+	jp		z, check_martian_ship_bomb_collision_human			; The bomb is in human zone
+	cp		21
+	jp		z, check_martian_ship_bomb_collision_human_ship		; The bomb is in human ship zone
+	cp		22
+	jp		z, check_martian_ship_bomb_collision_human_ship		; The bomb is in human ship zone
+	jp		check_martian_ship_bomb_collision_human_bomb		; the martian bomb is in potential human bomb zone
+check_martian_ship_bomb_collision_end:
+	pop		af													; Restore AF registry from stack
+	pop		bc													; Restore BC registry from stack
+	pop		de													; Restore DE registry from stack
+	ret
+check_martian_ship_bomb_collision_human:
+	call	read_char_at
+	cp		CHAR_SPACE
+	jp		z, check_martian_ship_bomb_collision_human_check_2	; No collision (check second bom character)
+check_martian_ship_bomb_collision_human_yes:
+	call	remove_static_human
+	ld		a, 1
+	jp		check_martian_ship_bomb_collision_end
+check_martian_ship_bomb_collision_human_check_2:
+	inc		c
+	call	read_char_at
+	cp		CHAR_SPACE
+	jp		z, check_martian_ship_bomb_collision_human_no
+	jp		check_martian_ship_bomb_collision_human_yes
+
+check_martian_ship_bomb_collision_human_no:
+	ld  	a, 0
+	jp		check_martian_ship_bomb_collision_end
+
+check_martian_ship_bomb_collision_human_bomb:
+	jp 		check_martian_ship_bomb_collision_end
+check_martian_ship_bomb_collision_human_ship:
+	call	read_char_at
+	cp		CHAR_SPACE
+	jp		z, check_martian_ship_bomb_collision_human_ship_2	; No collision (check second bom character)
+	jp 		check_martian_ship_bomb_collision_human_ship_yes
+check_martian_ship_bomb_collision_human_ship_2:
+	inc		c
+	call	read_char_at
+	cp		CHAR_SPACE
+	jp		z, check_martian_ship_bomb_collision_human_ship_no
+	jp		check_martian_ship_bomb_collision_human_ship_yes
+check_martian_ship_bomb_collision_human_ship_no:
+	ld  	a, 0
+	jp		check_martian_ship_bomb_collision_end
+check_martian_ship_bomb_collision_human_ship_yes:
+	call	move_martians_bombs_clear_array
+	call	remove_martian_ship_bomb
+	call	print_explosion
+	ld		bc, HUMAN_SHIP_HIDE_TIME
+	ld		(HUMAN_SHIP_INFO+8),bc				; Set timer
+	call	stop_human_ship_movement			; Stop human ship movement
+
+	call	remove_human_ship
+	ld		hl,(HUMAN_SHIP_INFO)
+	ld		(hl), 0								; Set human ship visible flag to false
+	ld		a, 1
+	jp		check_martian_ship_bomb_collision_end
+remove_static_human:
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		(hl), 1								; Set human expanded explosion type
+	ld		e, a
+	cp		205
+	jp		z, remove_static_human_left
+	cp		206
+	jp		z, remove_static_human_center
+	cp		207
+	jp		z, remove_static_human_right
+	ret		nz
+remove_static_human_exit:
+	call	print_explosion
+	ld		hl,HUMANS_COUNTER
+	ld  	a, (hl)								; Get human counter
+	dec		a									; Decrease human counter
+	ld		(hl), a								; Save new humans counter
+	call	refresh_human_counter				; refresh human counter on screen
+	ret
+remove_static_human_left:
+	push	bc							; Backup BC registry to stack
+
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		b
+	dec		c
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+ 
+	inc		b
+	dec		c
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	pop		bc							; Restore BC registry from stack
+
+	jp		remove_static_human_exit
+remove_static_human_left_exit:
+	pop		bc							; Restore BC registry from stack
+	jp		remove_static_human_exit
+
+remove_static_human_center:
+
+	push	bc							; Backup BC registry to stack
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+
+	inc		b
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+
+	inc		b
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	pop		bc							; Restore BC registry from stack
+	dec		c							; Decrease C registry for print exlosion in good position
+	jp		remove_static_human_exit
+remove_static_human_right:
+	ld		hl, HUMAN_EXPLOSION_FLAG
+	ld		(hl), 0								; Reset human expanded explosion type
+	push	bc									; Backup BC registry to stack
+
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		b
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	inc		b
+	inc		c
+	inc		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	dec		c
+	ld		a, CHAR_SPACE
+	call	print_char_at
+
+	pop		bc							; Restore BC registry from stack
+	dec		c							; Decrease C registry for print exlosion in good position
+	dec		c							; Decrease C registry for print exlosion in good position
+	jp		remove_static_human_exit
+remove_human_ship_bomb:
+	; --> REMOVE HUMAN SHIP BOMB
+	;	  MODIFY: AF
+	push	bc													; Backup BC registry to stack
+	push	hl													; Backup BC registry to stack
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		b, (hl) 											; Get human ship bomb current Y position
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		c, (hl)												; Get human ship bomb current X position
+	ld		a, CHAR_SPACE										
+	call	print_char_at										; Print space character at bomb position
+	inc		c
+	ld		a, CHAR_SPACE										
+	call	print_char_at										; Print space character at next right place near bomb position
+	call	draw_war_field_info_box								; Write info box left side
+	pop		hl													; Restore HL registry from stack
+	pop		bc													; Restore BC registry from stack
+	ret
+print_human_ship_bomb:
+	; -->  PRINT HUMAN SHIP BOMB
+	;      MODIFY: AF
+	push	bc													; Backup BC registry to stack
+	push	hl													; Backup BC registry to stack
+	ld		hl, HUMAN_SHIP_INFO+3
+	ld		(hl), 0												; Disable human ship "can fire" flag status
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		b, (hl) 											; Get human ship bomb current Y position
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		c, (hl)												; Get human ship bomb current X position
+	ld		a, CHAR_BOMB
+	call	print_char_at										; Print first bomb character at bomb position
+	inc		c
+	ld		a, CHAR_BOMB
+	inc		a
+	call	print_char_at										; Print second bomb character at bomb position
+	call	draw_war_field_info_box								; Write info box left side
+	pop		hl													; Restore HL registry from stack
+	pop		bc													; Restore BC registry from stack
+	ret	
+draw_war_field_info_box:
+	push	bc													; Backup BC registry in stack
+	ld    	b, 0
+	ld    	c, 63
+	ld    	a, CHAR_TOP_RIGHT									
+	call  	print_char_at										
+	ld    	b, 1
+	ld    	c, 63
+	ld    	a, CHAR_VERTICAL
+	call    print_char_at										; Write info box left side (it'd can if a bomb is near to it)
+	ld    	b, 2
+	ld    	c, 63
+	ld    	a, CHAR_VERTICAL
+	call    print_char_at										; Write info box left side (it'd can if a bomb is near to it)
+	ld    	b, 3
+	ld    	c, 63
+	ld    	a, CHAR_BOTTOM_LEFT									; Write info box left side (it'd can if a bomb is near to it)
+	call    print_char_at
+	pop 	bc													; Restore BC registry from stack
+	ret
+move_human_ship_to_right:
+	ld		hl, HUMAN_SHIP_INFO+4								; Get speed counter
+	ld		a, (hl)
+	inc 	a
+	ld		(hl), a
+	cp		5
+	ret		nz													; Exit if speed counter is not ok
+	ld		(hl), 0												; Reset speed counter
+	ld		hl, HUMAN_SHIP_INFO+1
+	ld		a, (hl)												; Get actual position
+	cp		74
+	jp		z, start_human_ship_move_left						; Change direction
+	inc		a
+	ld		hl, HUMAN_SHIP_INFO+1								; Increment position
+	ld		(hl), a
+	call 	print_human_ship
+	ret
+move_human_ship_to_left:
+	ld		hl, HUMAN_SHIP_INFO+4								; Get speed counter
+	ld		a, (hl)
+	inc 	a
+	ld		(hl), a
+	cp		5
+	ret		nz													; Exit if speed counter is not ok
+	ld		(hl), 0												; Reset speed counter
+	ld		hl, HUMAN_SHIP_INFO+1
+	ld		a, (hl)												; Get actual position
+	cp		1
+	jp		z, start_human_ship_move_right						; Change direction
+	dec		a
+	ld		hl, HUMAN_SHIP_INFO+1								; Decrement position
+	ld		(hl), a
+	call 	print_human_ship
+	ret
+start_human_ship_fire:
+	ld		hl, HUMAN_SHIP_INFO
+	ld		a,(hl)
+	cp		0
+	ret		z										; Human ship not visible: return to main loop
+	ld		hl, HUMAN_SHIP_INFO+3
+	ld		a, (hl)									; Get fire status
+	cp		0
+	ret		z										; Exit because fire is not allowed
+	ld		(hl), 0									; Set fire not allowed
+
+	ld		hl, HUMAN_SHIP_INFO+1					; Get current human ship position
+	ld		c, (hl)
+	inc		c
+	ld		hl, HUMAN_SHIP_INFO+6
+	ld		(hl), c									; Save human ship bomb X position
+	ld		hl, HUMAN_SHIP_INFO+7
+	ld		(hl), 20								; Save human ship bomb Y position
+	call	print_human_ship_bomb
+	ret												; Return to main loop
+start_human_ship_move_left:
+	ld		hl, HUMAN_SHIP_INFO
+	ld		a,(hl)
+	cp		0
+	jp		z, main_loop							; Human ship not visible: return to main loop
+	ld		hl, HUMAN_SHIP_INFO+2					; Set human ship movement direction
+	ld		(hl), 2
+	ret												; Return to main loop
+start_human_ship_move_right:
+	ld		hl, HUMAN_SHIP_INFO
+	ld		a,(hl)
+	cp		0
+	jp		z, main_loop							; Human ship not visible: return to main loop
+	ld		hl, HUMAN_SHIP_INFO+2					; Set human ship movement direction
+	ld		(hl), 1
+	ret												; Return to main loop
+stop_human_ship_movement:
+	ld		hl, HUMAN_SHIP_INFO+2					; Reset human ship movement direction
+	ld		(hl), 0
+	ret												; Return to main loop
+print_human_ship:
+	; --> PRINT HUMAN SHIP TO SCREEN
+
+	push	bc											; Put BC registry to stack
+	push	hl											; Put HL registry to stack
+	push  	de											; Put DE registry to stack
+	push	af											; Put AF registry to stack
+
+	ld		hl, HUMAN_SHIP_INFO					
+	ld		a,(hl)
+	cp		0
+	jp		z, print_human_ship_end					; Human ship not visble
+	ld		hl, HUMAN_SHIP_INFO+1
+	ld		c, (hl)										; Put in C registry the human ship current position
+	ld		b, 21
+	ld		a, CHAR_HUMAN_SHIP					
+	call 	print_char_at								; Print sector 1_1
+
+	inc		c
+	ld		b, 21
+	inc     a
+	call 	print_char_at								; Print sector	1_2
+
+	inc		c
+	ld		b, 21
+	inc     a
+	call 	print_char_at								; Print sector	1_3
+
+	inc		c
+	ld		b, 21
+	inc     a
+	call 	print_char_at								; Print sector	1_4
+
+	dec		c
+	dec		c
+	dec		c
+	ld		b, 22								
+	inc		a
+	call 	print_char_at								; Print sector	2_1
+
+	inc		c
+	ld		b, 22
+	inc		a			
+	call 	print_char_at								; Print sector	2_2
+
+	inc		c
+	ld		b, 22
+	inc		a
+	call 	print_char_at								; Print sector	2_3
+
+	inc		c
+	ld		b, 22
+	inc		a
+	call 	print_char_at								; Print sector	2_4
+
+	dec		c								
+	dec		c
+	dec		c
+
+	ld		a, c
+	cp		1
+	call    nz, print_human_ship_clear_left			; Clear character before new human ship position
+	
+	ld		a, c
+	cp		74
+	call    nz, print_human_ship_clear_right			; Clear character after new human ship position
+
+print_human_ship_end:
+	pop		af											; Restore AF registry from stack
+	pop		bc											; Restore BC registry from stack
+	pop		de											; Restore DE registry from stack
+	pop		hl											; Restore HL registry from stack
+	ret
+print_human_ship_clear_left:							; Clear character before new human ship position
+	dec		c
+	ld		b, 21
+	ld		a, CHAR_SPACE
+	call 	print_char_at								
+	ld		b, 22
+	ld		a, CHAR_SPACE
+	call 	print_char_at	
+	inc		c
+	ret
+print_human_ship_clear_right:						; Clear character after new human ship position
+	inc		c
+	inc		c
+	inc		c
+	inc		c
+	ld		b, 21
+	ld		a, CHAR_SPACE
+	call 	print_char_at								
+	ld		b, 22
+	ld		a, CHAR_SPACE
+	call 	print_char_at	
+	dec		c
+	dec		c
+	dec		c
+	dec		c
+	ret
+set_selected_level_parameters:
+	; --> SET PARAMETER IN FUNCTION OF SELECTED LEVEL
+	;	  MODIFY: HL, AF
+	ld		hl, SELECTED_LEVEL
 	ld		a,(hl)
 	cp		2
-	jp	 	z, ScreenRefresh_exit_martians_speed
-	ld		hl, MartiansShipsSpeed
+	jp		z, set_selected_level_parameters_2
+	cp		3
+	jp		z, set_selected_level_parameters_3
+set_selected_level_parameters_1:
+	ld		hl, MARTIANS_COUNTER						
+	ld		(hl), 20									; Set martians ships number
+	ld		hl, MARTIANS_SHIPS_INFO						
+	ld		(hl), 1	     								; Set martian bombs frequency ratio
+	ld		hl, HUMAN_SHIP_INFO+5						
+	ld		(hl), 3										; Set human ship speed
+	ld		hl, MARTIANS_SHIPS_INFO+23
+	ld		(hl), 4										; Martians ships speed
+	ret
+set_selected_level_parameters_2:
+	ld		hl, MARTIANS_COUNTER						
+	ld		(hl), 25									; Set martians ships number
+	ld		hl, MARTIANS_SHIPS_INFO		
+	ld		(hl), 2 									; Set martian bombs frequency ratio
+	ld		hl, HUMAN_SHIP_INFO+5						
+	ld		(hl), 4										; Set human ship speed
+	ld		hl, MARTIANS_SHIPS_INFO+23
+	ld		(hl), 4										; Martians ships speed
+	ret
+set_selected_level_parameters_3:
+	ld		hl, MARTIANS_COUNTER						
+	ld		(hl), 29									; Set martians ships number
+	ld		hl, MARTIANS_SHIPS_INFO
+	ld		(hl), 3										; Set martian bombs frequency ratio
+	ld		hl, HUMAN_SHIP_INFO+5					
+	ld		(hl), 3										; Set human ship speed
+	ld		hl, MARTIANS_SHIPS_INFO+23
+	ld		(hl), 4										; Martians ships speed
+	ld		hl, HUMAN_SHIP_HIDE_TIME
+	ret
+sleep:
+	; --> SLEEP EXECUTION
+	;     INPUT: BC=Duration
+	push	bc
+sleep_loop:
+	nop
+	dec 	bc
+	ld 		a,b
+	or 		c
+	jp 		z, sleep_end
+	jp 		sleep_loop
+sleep_end:
+	pop		bc
+	ret
+clear_screen:
+	; --> CLEAR SCREEN (Use this routine because BIOS CLS call not clear 26.5 row)
+	;     MODIFY: AF, DE, HL
+	ld    	hl, #4000						; Init begin WRAM address to write into HL registry
+	ld		de, #870						; Put into BC registry the total amount of character present into screen
+clear_screen_loop:
+	ld		a, CHAR_SPACE							
+	call	WRTVRM							; Write character to video writing it into WRAM memory address
+	inc		hl
+	dec		de
+	push	hl								; Preserve HL registry value putting it into stack
+	ld		hl, 0							; Using HL registry to compare DE counter
+	or 		a 								; Clear carry flag
+	sbc 	hl, de							; Check if DE counter is zero  
+	add 	hl, de
+	pop		hl								; Restore HL registry from stack
+	jp		c, clear_screen_loop
+	ret
+print_string_at:
+	; --> PRINT A STRING TO SCREEN AT POSITION X,Y
+	; 	  INPUT: HL=String to print, C=Position X, B=Position Y
+	ld		a, (hl) 
+	cp		0 
+	ret		z
+	call    print_char_at
+	inc		c
+	inc     hl 
+	jp		print_string_at 
+print_char_at:
+	; --> PRINT A CHARACTER TO SCREEN AT POSITION X,Y
+	;     INPUT: A=Character, C=Position X, B=Position Y
+	;	  MODIFY: AF
+	push	bc								; Put BC registry to stack
+	push	hl								; Put HL registry to stack
+	push  	de								; Put DE registry to stack
+	push	af								; Put AF registry to stack
+	ld		d, a							; Put character code to print into D registry
+	ld    	a,b								; Next rows are for calculate VRAM memory address to write
+	ld    	h,80
+	call  	mult_8bit_values				 
+	ld    	a,c 
+	add   	a, l    
+    ld    	l, a    
+    adc   	a, h    
+    sub   	l       
+    ld    	h, a    
+	ld    	bc,#4000
+	add   	hl,bc 							; VRAM address position to write
+	ld	  	a,(VDP_DW)						; Next rows are for write character to VRAM
+	ld	  	c,a
+	inc   	c
+	ld    	a,l
+	di
+	out   	(c),a
+	ld    	a,h
+	ei
+	out   	(c),a
+	ld	  	a,(VDP_DR)	
+	ld	  	c,a
+	ld    	a,d
+	out  	(c),a
+	pop		af								; Restore AF registry
+	pop		de								; Restore DE registry
+	pop		hl								; Restore HL registry
+	pop		bc								; Restore BC registry
+	ret
+
+mult_8bit_values:
+	; --> 8bit value x 8bit value with 16bit value result
+	; 	  INPUT: H=Factor, A=Second factori 2
+	; 	  OUTPUT: HL
+	push	de
+	push	bc
+	ld		e, a
+	ld 		d,0
+	ld 		l,d
+	ld 		b,8
+mult_8bit_values_loop:
+	add 	hl,hl
+	jp 		nc,mult_8bit_values_noadd
+	add 	hl,de
+mult_8bit_values_noadd:
+	djnz mult_8bit_values_loop
+	pop		bc
+	pop		de
+	ret
+
+mult_8bit_16bit_values:
+	; --> 8bit value x 8bit value with 16bit value result	
+	;     INPUT: A=8bit factor, DE=16 bit factor 2
+	; 	  OUTPUT: HL
+	push	bc
+	ld		l,0
+	ld 		b,8
+mult_8bit_16bit_values_loop:
+	add 	hl,hl
+	add 	a,a
+	jp 		nc,mult_8bit_16bit_values_noadd
+	add 	hl,de
+mult_8bit_16bit_values_noadd:
+	djnz	mult_8bit_16bit_values_loop
+	pop		bc
+	ret
+
+refresh_martians_counter:
+	; --> REFRESH MARTIAN COUNTER
+	push	hl									; Backup HL registry to stack
+	push	de									; Backup DE registry to stack
+	push	bc									; Backup BC registry to stack
+	push	af									; Backup AF registry to stack
+	ld		hl, MARTIANS_COUNTER
+	push	hl
 	ld		a,(hl)
-	inc		a
-	ld		(hl),a
+	cp		10
+    jp      c, refresh_martians_counter_less_10
+	cp		20
+	jp      c, refresh_martians_counter_less_20
+	pop		hl
+	ld		a,(hl)
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a	
+	add		a, 48
+	ld    	b, 2
+	ld    	c, 78
+	call    print_char_at
+	ld    	b, 2
+	ld    	c, 77
+	ld    	a, 50
+	call    print_char_at
+	jp		refresh_martians_counter_end
+refresh_martians_counter_less_20:
+	pop		hl
+	ld		a,(hl)
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	dec		a
+	add		a, 48
+	ld    	b, 2
+	ld    	c, 78
+	call    print_char_at
+	ld    	b, 2
+	ld    	c, 77
+	ld    	a, 49
+	call    print_char_at
+	jp		refresh_martians_counter_end
+refresh_martians_counter_less_10:
+	ld    	b, 2
+	ld    	c, 77
+	ld    	a, CHAR_SPACE
+	call  	print_char_at
+	pop 	hl
+	ld		a,(hl)
+	add		a, 48
+	ld		b, 2
+	ld    	c, 78
+	call    print_char_at
+refresh_martians_counter_end:
+	pop		af									; Restore AF registry from stack
+	pop		bc									; Restore BC registry from stack
+	pop		de									; Restore DE registry from stack
+	pop		hl									; Restore HL registry from stack
 	ret
-ScreenRefresh_exit_martians_speed:
-	ld		hl, MartiansShipsSpeed
-	ld		(hl),0
-	call    MartianShipsManagment
-	call	MartiansRefreshPositions
-	call	RefreshMartiansMissilesPositions
+refresh_human_counter:
+	; --> REFRESH MARTIAN COUNTER
+	push	hl									; Backup HL registry to stack
+	push	de									; Backup DE registry to stack
+	push	bc									; Backup BC registry to stack
+	push	af									; Backup AF registry to stack
+	ld		hl, HUMANS_COUNTER
+	push	hl
+	ld		a,(hl)
+	cp		10
+    jp      c, refresh_human_counter_less_10
+	pop		hl
+	ld		a,(hl)
+	sub 	10
+	add		a, 48
+	ld    	b, 1
+	ld    	c, 78
+	call  	print_char_at
+	ld    	b, 1
+	ld    	c, 77
+	ld    	a, 49
+	call    print_char_at
+	jp		refresh_human_counter_end
+refresh_human_counter_less_10:
+	ld    	b, 1
+	ld    	c, 77
+	ld    	a, CHAR_SPACE
+	call    print_char_at
+	pop 	hl
+	ld		a,(hl)
+	add		a, 48
+	ld		b, 1
+	ld    	c, 78
+	call    print_char_at
+refresh_human_counter_end:
+	pop		af								; Restore AF registry from stack
+	pop		bc								; Restore BC registry from stack
+	pop		de								; Restore DE registry from stack
+	pop		hl								; Restore HL registry from stack
 	ret
 
-RemoveHumanMissile:
-	push	bc
-	ld		a, d
-	ld		hl, MissilesPosX
-	call	Add8BitTo16Bit
-	ld		(hl),0
-
-	ld		a, d
-	ld		hl, MissilesPosY
-	call	Add8BitTo16Bit
-	ld		(hl),0
-
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     c
-	ld		d,32
-	call	PrintCharacterAtPosition
-
-	pop		bc
-	ret
-SetMissileLocationAtArrayPosition:
-	; INPUT: D=Position, B=PosY, C=PosX
-	ld		a,0
-	ld		hl, MissilesPosX
-SetMissileLocationAtArrayPosition_loop_x:
-	cp		d
-	jp		z, SetMissileLocationAtArrayPosition_end_x
-	inc		a
-	inc		hl 
-	jp		SetMissileLocationAtArrayPosition_loop_x
-SetMissileLocationAtArrayPosition_end_x:
-	ld		(hl),c
-	ld		a,0
-	ld		hl, MissilesPosY
-SetMissileLocationAtArrayPosition_loop_y:
-	cp		d
-	jp		z, SetMissileLocationAtArrayPosition_end_y
-	inc		a
-	inc		hl 
-	jp		SetMissileLocationAtArrayPosition_loop_y
-SetMissileLocationAtArrayPosition_end_y:
-	ld		(hl),b
-	ret
-GetMissileLocationByArrayPosition:
-	; INPUT: D=Position
-	; OUTPUT: C=PosX, B=PosY
-	; MODIFY: DE, HL, BC
-	ld		a,0
-	ld		hl, MissilesPosX
-	ld		c,0
-	ld		b,0
-GetMissileLocationByArrayPosition_loop_x:
-	cp		d
-	jp		z, GetMissileLocationByArrayPosition_end_x
-	inc		a
-	inc		hl 
-	jp		GetMissileLocationByArrayPosition_loop_x
-GetMissileLocationByArrayPosition_end_x:
-	ld		c,(hl)
-	ld		a,0
-	ld		hl, MissilesPosY
-GetMissileLocationByArrayPosition_loop_y:
-	cp		d
-	jp		z, GetMissileLocationByArrayPosition_end_y
-	inc		a
-	inc		hl 
-	jp		GetMissileLocationByArrayPosition_loop_y
-GetMissileLocationByArrayPosition_end_y:
-	ld		b,(hl)
-	ret
-
-
-GetFirstGameAreaRow:
-	ld		a,c
-	ld		c,1
-	cp		62
-	jp		z, GetFirstGameAreaRow_topright
-	cp		63
-	jp		z, GetFirstGameAreaRow_topright
-	cp		64
-	jp		z, GetFirstGameAreaRow_topright
-	cp		64
-	jp		z, GetFirstGameAreaRow_topright
-	cp		65
-	jp		z, GetFirstGameAreaRow_topright
-	cp		66
-	jp		z, GetFirstGameAreaRow_topright
-	cp		67
-	jp		z, GetFirstGameAreaRow_topright
-	cp		68
-	jp		z, GetFirstGameAreaRow_topright
-	cp		69
-	jp		z, GetFirstGameAreaRow_topright
-	cp		70
-	jp		z, GetFirstGameAreaRow_topright
-	cp		71
-	jp		z, GetFirstGameAreaRow_topright
-	cp		72
-	jp		z, GetFirstGameAreaRow_topright
-	cp		73
-	jp		z, GetFirstGameAreaRow_topright
-	cp		74
-	jp		z, GetFirstGameAreaRow_topright
-	cp		75
-	jp		z, GetFirstGameAreaRow_topright
-	cp		76
-	jp		z, GetFirstGameAreaRow_topright
-	cp		77
-	jp		z, GetFirstGameAreaRow_topright
-
-	ret
-GetFirstGameAreaRow_topright:
-	ld		c,4
-	ret
-ReadCharacterFromVramAtPosition:
+read_char_at:
+	; --> READ CHARACTER ON SCREEN AT POSITION
 	; INPUT: c=Position X, b=Position Y
-	; OUPUT: c=Character in VRAM
-	; MODIFY: BC
-	; RETURN c=character code
-	ld    	a,c
-	cp    	80
-	jp    	z, PrintCharacterAtPosition_exit
-	push  	de
+	; OUPUT: a=Character
+	; MODIFY: AF
+	push	hl									; Backup HL registry to stack
+	push	de									; Backup DE registry to stack
+	push	bc									; Backup BC registry to stack
 	ld    	h,b
-	ld    	e,80
-	call  	Mult8
-	pop   	de
+	ld    	a,80
+	call  	mult_8bit_values
 	ld    	a,c
 	add   	a, l    
     ld    	l, a    
     adc   	a, h    
     sub   	l       
     ld    	h, a    
-	ld    	bc,4000h
+	ld    	bc, #4000
 	add   	hl,bc 
 	call  	RDVRM
-	ld		c, a
+	pop		bc											; Restore BC registry from stack
+	pop		de											; Restore DE registry from stack
+	pop		hl											; Restore HL registry from stack
 	ret
-move_human_ship_to_left:
-
-	ld		hl, MartiansShipsSpeed
-	ld		a,(hl)
-	cp		2
-	jp		nz, main_loop
-	call	ScreenRefresh_refresh
-	ld		bc, 0fffh
-	call	Delay
-	ld		hl, HumanShipCurrentPosition
-	ld		a, (hl)
-	cp		1
-	jp		z, move_human_ship_to_left_no_move_allowed
-	dec		a
-	ld		hl, HumanShipCurrentPosition
-	ld		(hl), a
-	call 	PrintHumanShip
-	jp		main_loop
-move_human_ship_to_left_no_move_allowed:
-	jp		start_move_human_ship_to_right
-move_human_ship_to_right:
-
-	ld		hl, MartiansShipsSpeed
-	ld		a,(hl)
-	cp		2
-	jp		nz, main_loop
-	call	ScreenRefresh_refresh
-	ld		bc, 0fffh
-	call	Delay
-	ld		hl, HumanShipCurrentPosition
-	ld		a, (hl)
-	cp		74
-	jp		z, move_human_ship_to_right_no_move_allowed
-	inc		a
-	ld		hl, HumanShipCurrentPosition
-	ld		(hl), a
-	call 	PrintHumanShip
-	jp		main_loop
-move_human_ship_to_right_no_move_allowed:
-	jp		start_move_human_ship_to_left
-start_human_ship_fire:
-	ld		hl, HumanShipVisible
-	ld		a,(hl)
-	cp		0
-	jp		z, main_loop
-	ld		hl, HumanShipCurrentPosition
-	ld		c, (hl)
-	inc		c
-	ld		b, 20
-	call	ReadCharacterFromVramAtPosition
-	ld		a, c
-	cp		HumanMissile
-	jp		z, main_loop
-	ld		a,0
-	ld		hl, MissilesPosX
-start_human_ship_fire_find_free_array_item:
-	cp		1				; *** Set HERE HOW MANY SHOTS (+1) ARE POSSIBLE FROM HUMAN SHIP ***
-	jp		z,	main_loop
-	ld		b, a
-	ld		a,(hl)
-	cp		0
-	jp		z, start_human_ship_fire_draw
-	ld		a, b
-	inc		hl		
-	inc		a
-	jp		start_human_ship_fire_find_free_array_item
-
-start_human_ship_fire_draw:
-	push	hl
-	ld		hl, HumanShipCurrentPosition
-	ld		c, (hl)
-	inc		c
-
-	ld		b, 20
-	ld		d, HumanMissile
-	call 	PrintCharacterAtPosition
-	ld		hl, HumanShipCurrentPosition
-	ld		c, (hl)
-	inc		c
-	inc		c
-	ld		b, 20
-	ld		d, HumanMissile
-	inc		d
-	call 	PrintCharacterAtPosition
-
-	ld		hl, HumanShipCurrentPosition
-	ld		c, (hl)
-	inc		c
-
-	pop		hl
-	ld		(hl), c
-start_human_ship_fire_draw_savey:
-	ld		a,0
-	ld		hl, MissilesPosY
-start_human_ship_fire_draw_savey_find_free_array_item:
-	cp		50
-	jp		z,	main_loop
-	ld		b, a
-	ld		a,(hl)
-	cp		0
-	jp		z, start_human_ship_fire_draw_savey_end
-	ld		a, b
-	inc		hl		
-	inc		a
-	jp		start_human_ship_fire_draw_savey_find_free_array_item
-start_human_ship_fire_draw_savey_end
-	ld		(hl),20
-	jp		main_loop
-start_move_human_ship_to_right:
-	ld		hl, HumanShipVisible
-	ld		a,(hl)
-	cp		0
-	jp		z, main_loop
-	ld		hl,HumanShipMovingDirection
-	ld		(hl),1
-	jp		main_loop
-start_move_human_ship_to_left:
-	ld		hl, HumanShipVisible
-	ld		a,(hl)
-	cp		0
-	jp		z, main_loop
-	ld		hl,HumanShipMovingDirection
-	ld		(hl),2
-	jp		main_loop
-stop_human_ship:
-	ld		hl,HumanShipMovingDirection
-	ld		(hl),0
-	jp		main_loop
-PrintHumanShip:
-	; MODIFY: HL, DE, BC
-	ld		hl, HumanShipVisible
-	ld		a,(hl)
-	cp		0
-	ret		z
-
-	ld		hl, HumanShipCurrentPosition
-	ld		c, (hl)
-	push 	bc
-	ld		b, 21
-	ld		d, HumanShip
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	inc		c
-
-	ld		b, 21
-	inc     d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	inc		c
-	inc 	c
-	ld		b, 21
-	inc     d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	ld		b, 22
-	inc		d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	inc		c
-	ld		b, 22
-	inc		d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	inc		c
-	inc 	c
-	ld		b, 22
-	inc		d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	
-	push 	bc
-	inc		c
-	inc 	c
-	inc		c
-	ld		b, 21
-	inc		d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push 	bc
-	inc		c
-	inc 	c
-	inc		c
-	ld		b, 22
-	inc		d
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	ld		a, c
-	cp		1
-	jp      nz, PrintHumanShip_clear_left
-	
-	ld		a, c
-	cp		74
-	jp      nz, PrintHumanShip_clear_right
-
-	ret
-PrintHumanShip_clear_left:
-	push	bc
-	dec		c
-	ld		b, 22
-	ld		d, 32
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push	bc
-	dec		c
-	ld		b, 21
-	ld		d, 32
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-	ld		a, c
-	cp		74
-	jp      nz, PrintHumanShip_clear_right
-
-	ret
-PrintHumanShip_clear_right:
-
-	push	bc
-	inc		c
-	inc		c
-	inc		c
-	inc		c
-	inc		c
-	ld		b, 21
-	ld		d, 32
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push	bc
-	inc		c
-	inc		c
-	inc		c
-	inc		c
-	ld		b, 22
-	ld		d, 32
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push	bc
-	ld		b, 22
-	ld		c, 78
-	ld		d, BrdVertical
-	call 	PrintCharacterAtPosition
-	pop 	bc
-	push	bc
-	ld		b, 21
-	ld		c, 78
-	ld		d, BrdVertical
-	call 	PrintCharacterAtPosition
-	pop 	bc
-
-
-
-
-	ret
-DrawInfoBox:
-	ld    	b, 0
-	ld    	c, 63
-	ld    	d, BrdTopRight
-	call  PrintCharacterAtPosition
-
-	ld    	b, 1
-	ld    	c, 63
-	ld    	d, BrdVertical
-	call  PrintCharacterAtPosition
-
-	ld    	b, 2
-	ld    	c, 63
-	ld    	d, BrdVertical
-	call  PrintCharacterAtPosition
-
-	ld    	b, 3
-	ld    	c, 63
-	ld    	d, BrdBottomLeft
-	call  PrintCharacterAtPosition
-
-	ld    	b, 3
-	ld    	c, 78
-	ld    	d, BrdTopRight
-	call  PrintCharacterAtPosition
-
-	ret
-RefreshMartiansCounters:
-	ld		hl, Martians
-	push	hl
-	ld		a,(hl)
-	cp		10
-    jp      c, RefreshMartiansCountersLess10
-	cp		20
-	jp      c, RefreshMartiansCountersLess20
-
-	pop		hl
-	ld		a,(hl)
-	;sub		a, 10	
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	add		a, 48
-	ld    	b, 2
-	ld    	c, 78
-	ld    	d, a
-	call  PrintCharacterAtPosition
-
-	ld    	b, 2
-	ld    	c, 77
-	ld    	d, 50
-	call  PrintCharacterAtPosition
-
-	ret
-RefreshMartiansCountersLess20
-	pop		hl
-	ld		a,(hl)
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	add		a, 48
-	ld    	b, 2
-	ld    	c, 78
-	ld    	d, a
-	call  PrintCharacterAtPosition
-
-	ld    	b, 2
-	ld    	c, 77
-	ld    	d, 49
-	call  PrintCharacterAtPosition
-	ret
-RefreshMartiansCountersLess10
-	ld    	b, 2
-	ld    	c, 77
-	ld    	d, 32
-	call  PrintCharacterAtPosition
-
-	pop 	hl
-	ld		a,(hl)
-	add		a, 48
-	ld		b, 2
-	ld    	c, 78
-	ld    	d, a
-	call  PrintCharacterAtPosition
-	ret
-RefreshHumansCounters:
-	ld		hl, Humans
-	push	hl
-	ld		a,(hl)
-	cp		10
-    jp      c, RefreshCounterHumansLess10
-	
-	pop		hl
-	ld		a,(hl)
-	;sub		a, 10	
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	dec		a
-	add		a, 48
-	ld    	b, 1
-	ld    	c, 78
-	ld    	d, a
-	call  PrintCharacterAtPosition
-
-	ld    	b, 1
-	ld    	c, 77
-	ld    	d, 49
-	call  PrintCharacterAtPosition
-
-	ret
-RefreshCounterHumansLess10:
-	ld    	b, 1
-	ld    	c, 77
-	ld    	d, 32
-	call  PrintCharacterAtPosition
-
-	pop 	hl
-	ld		a,(hl)
-	add		a, 48
-	ld		b, 1
-	ld    	c, 78
-	ld    	d, a
-	call  PrintCharacterAtPosition
-	ret
-
-
-
-Delay:
-	; MODIFY: BC
-	nop
-	dec bc
-	ld a,b
-	or c
-	ret z
-	jp Delay
-MoveHumanFromLeft:
-	;INPUT: D=Position,E=First character code
-	push bc
-	push  de
-	ld    a,d
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc   a
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	inc   a  	
-	inc	  a
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-    push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  a
-	inc   a
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	inc   a
-	inc	  e
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
- 
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	ld    b, 23
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	ld    b, 24
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-	
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	ld    b, 25
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	ret
-MoveHumanFromRight:
-	;INPUT: D=Position,E=First character code
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	dec   a
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	dec   a
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	ld    b, 23
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-    push bc
-	push  de
-	ld    a,d
-	dec   a
-	dec   a
-	inc	  e
-	inc	  e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	ld    b, 24
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	dec   a
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	dec   a
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc	  e
-	inc	  e
-	inc	  e
-	inc	  e
-	inc   e
-	inc   e
-	inc   e
-	inc   e
-	ld    b, 25
-	ld    c, a
-	ld    d, e
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
- 
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	ld    b, 23
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	ld    b, 24
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-	
-	push bc
-	push  de
-	ld    a,d
-	inc   a
-	ld    b, 25
-	ld    c, a
-	ld    d, 32
-	call  PrintCharacterAtPosition
-	pop   de
-	pop  bc
-
-	ret
-SetBlinkingCharacter:
-	; INPUT: C=Position X, B=Position Y
-	; MODIFY: HL, DE
-	push bc
-	ld    a,(REG3SAV)
-	ld    e, a
-	ld    h, 40h
-	call  Mult8
-	ld    de, hl
-	pop   bc
-	push  de
-	push  bc
-	ld    h,b
-	ld    e,80
-	call  Mult8
-	pop   bc
-	pop   de
-	ld    a,c
-	add   a, l    
-    ld    l, a    
-    adc   a, h    
-    sub   l       
-    ld    h, a    
-	pop   de
-	push  hl
-	pop   bc
-	ld    hl, de
-	add   hl, bc
-	ld	  hl, de
-	ld	  a,(VDP_DW)	
-	ld	  c,a
-	inc   c
-	ld    a,l
-	di
-	out   (c),a
-	ld    a,h
-	ei
-	out   (c),a
-	ld	  a,(VDP_DR)	
-	ld	  c,a
-	ld    a,1
-	out   (c),a
-	ret
-
-WriteByteToVdpRegister:
-	; INPT: A = data, B = register number + 80h (to set the bit 7)
-	; MODIFY: BC
-	push	af
-	ld	a,(VDP_DW)	
-	ld	c,a
-	inc	c	
-	di			
-	pop	af
-	out	(c),a		
-	out	(c),b		
-	ei			
-	ret
-
-ReadVdpRegisterStatus:
-	; INPUT: B = Status register number to read (MSX2~)
-	; OUTPUT: B = Read value from the status register
-	; MODIFY: AF, BC
-	; -> Write the registre number in the r#15 (these 7 lines are specific MSX2 or newer)
-	ld	a,(VDP_DW)	
-	inc	a
-	ld	c,a		
-	di		
-	out	(c),b
-	ld	a,080h+15
-	out	(c),a 
-	ld	a,(VDP_DR)
-	inc	a
-	ld	c,a		
-	in	b,(c)	
-	ld	a,(VDP_DW)	
-	inc	a
-	ld	c,a		
-	xor	a
-	out	(c),a
-	ld	a,080h+15
-	out	(c),a
-	ei		
-	ret
-PrintCharacterAtPosition:
-	; INPUT: D=Character, C=Position X, B=Position Y
-	; MODIFY: HL, DE, BC
-	ld    a,c
-	cp    80
-	jp    z, PrintCharacterAtPosition_exit
-	push  de
-	ld    h,b
-	ld    e,80
-	call  Mult8
-	pop   de
-	ld    a,c
-	add   a, l    
-    ld    l, a    
-    adc   a, h    
-    sub   l       
-    ld    h, a    
-	ld    bc,4000h
-	add   hl,bc 
-	ld	  a,(VDP_DW)	
-	ld	  c,a
-	inc   c
-	ld    a,l
-	di
-	out   (c),a
-	ld    a,h
-	ei
-	out   (c),a
-	ld	  a,(VDP_DR)	
-	ld	  c,a
-	ld    a,d
-	out  (c),a
-PrintCharacterAtPosition_exit:
-	ret
-
-PrintStringAtPosition:
-	; INPUT: HL String to print, C=Position X, B=Position Y
-	; MODIFY: HL, DE, BC
-PrintStringAtPosition_loop:
-	ld		a, (hl) 
-
-	cp		0 
-	jp		z, PrintStringAtPosition_end
-	push	hl
-	ld      d, a
-	push	bc
-	call    PrintCharacterAtPosition
-	pop		bc
-	inc		c
-	pop		hl
-	inc     hl 
-	jp		PrintStringAtPosition_loop 
-PrintStringAtPosition_end:
-	ret
-Mult8:
-	; INPUT: H=Factor, E=Factor 2
-	; OUTPUT: HL
-	; MODIFY: DE
-	ld d,0
-	ld l,d
-	ld b,8
-Mult8_Loop:
-	add hl,hl
-	jp nc,Mult8_NoAdd
-	add hl,de
-Mult8_NoAdd:
-	djnz Mult8_Loop
-	ret
-
-Mult12:	
-	; INPUT: A=Factor, DE=Factor 2
-	; OUTPUT: HL
-	ld l,0
-	ld b,8
-Mult12_Loop:
-	add hl,hl
-	add a,a
-	jp nc,Mult12_NoAdd
-	add hl,de
-Mult12_NoAdd:
-	djnz Mult12_Loop
-	ret
-
-Mult16:	ld a,b
-	; INPUT: BC=Factor, DE=Factor 2
-	; OUTPUT: HL
-	ld b,16
-Mult16_Loop:
-	add hl,hl
-	sla c
-	rla
-	jp nc,Mult16_NoAdd
-	add hl,de
-Mult16_NoAdd:
-	djnz Mult16_Loop
-	ret
-InitScreen:
-	ld a,80              ; 80 columns 
-    ld (LINL40),a
-    xor a
-    call CHGMOD          ; Screen 0  
-
-	ld	a,(0fcc1h)
-	ld	hl,002dh
-	call	RDSLT
-	or	a
-	ret	z	; Back if MSX1
-
-	ld	a,26
-	ld	(0F3B1h),a
-
-	ld	a,(0fcc1h)
-	ld	hl,0007h
-	call	RDSLT
-
-	ld	c,a
-	inc	c
-
-	ld	a,(REG9SAV)
-	or	080h
-	di
-	ld	(REG9SAV),a
-	out (c),a
-	ld a,80h+9
-	ei
-	out (c),a		
-	ld a,080h
-	di
-	out (c),a
-	ld a,047h
-	out (c),a
-	ei
-	dec c
-	ld a,32	
-	ld b,240	
-InitScreen_loop:
-	out	(c),a
-	djnz	InitScreen_loop
-	ret
-PrintNewLine:
-	push af 			
-	ld a,13				; Carriage return
-	call CHPUT
-	ld a,13				; Line feed
-	call CHPUT
-	
-RemoveMartianShip:
-	; INPUT: c=Pos X, b=Pos Y
-	; MODIFY: BC,DE, HL
-
-	push	bc
-	push	de
-	ld		e, 78
-	ld		a, b
-	cp		2
-	call	z, RemoveMartianShip_row2
-	ld		a,1
-	
-RemoveMartianShip_loop:
-	cp		e
-	jp		z, RemoveMartianShip_end
-	ld		c, a
-	push	bc
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	push	bc
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		bc
-	ld		a, c
-	inc		a
-	jp 		RemoveMartianShip_loop
-	
-RemoveMartianShip_end:
-	pop		de
-	pop		bc
-	;call	RestoreVerticalBorders
-	ret
-RemoveMartianShip_row2:
-	ld		e, 62
-	ret
-RestoreVerticalBorders:
-
-
-	push	de
-	push	bc
-	ld		d,BrdVertical
-	ld		c,0
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-
-	push	de
-	push	bc
-	ld		d,BrdVertical
-	ld		c,0
-	inc		b
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-
-	ld		a, b
-	cp		2
-	ret		z
-	push	de
-	push	bc
-	ld		d,BrdVertical
-	ld		c,78
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-
-	push	de
-	push	bc
-	ld		d,BrdVertical
-	ld		c,78
-	inc		b
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-
-	ld		a, b
-	cp		4
-	ret		z
-
-	push	de
-	push	bc
-	ld		d,BrdVertical
-	ld		c,78
-	dec		b
-	call	PrintCharacterAtPosition
-	pop		bc
-	pop		de
-
-	push	de
-	push	bc
-	call	DrawInfoBox
-	pop		bc
-	pop		de
-
-	;call	RefreshHumansCounters
-	;call	RefreshMartiansCounters
-
-	ret
-ShowMartianShip:
-	; INPUT: c=Pos X, b=Pos Y, d=First character code
-	; MODIFY: BC,DE, HL
-
-	push	bc
-	push	de
-	dec		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	dec		c
-	inc		b
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	inc		c
-	inc		c
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	push	bc
-	push	de
-	inc		b
-	inc		c
-	inc		c
-	inc		c
-	inc		c
-	ld		d, 32
-	call	PrintCharacterAtPosition
-	pop		de
-	pop		bc
-
-	call	RestoreVerticalBorders
-
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	dec		c
-	dec		c
-	dec		c
-	inc		b
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-	inc     d
-	inc		c
-	push	bc
-	call	PrintCharacterAtPosition
-	pop		bc
-
-
-	ret
-
-PrintString:
-	ld a,(hl)
-	cp 255
-	ret z
-	inc hl
-	call CHPUT
-	jp PrintString
-DefineCustomCharacters:
-	
-	ld a, (REG4SAV)
-	ld de, 2048
-	call Mult12
-	ld bc,hl
-
-
-
-
-	push bc
-	ld h, 128
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_11_128
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 129
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_12_129
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 130
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_13_130
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 131
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_21_131
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 132
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_22_132
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 133
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_23_133
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 134
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_31_134
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 135
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_32_135
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 136
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman1_33_136
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 137
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_11_137
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 138
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_12_138
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 139
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_13_139
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 140
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_21_140
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 141
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_22_141
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 142
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_23_142
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 143
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_31_143
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 144
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_32_144
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 145
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman2_33_145
-	add hl, bc
-	call LoadCharacterDefinition
-
-
-	ld h, 146
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_11_146
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 147
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_12_147
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 148
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_13_148
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 149
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_21_149
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 150
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_22_150
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 151
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_23_151
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 152
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_31_152
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 153
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_32_153
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 154
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman3_33_154
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 155
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_11_155
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 156
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_12_156
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 157
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_13_157
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 158
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_21_158
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 159
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_22_159
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 160
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_23_160
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 161
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_31_161
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 162
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_32_162
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 163
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman4_33_163
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 164
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_11_164
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 165
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_12_165
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 166
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_13_166
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 167
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_21_167
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 168
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_22_168
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 169
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_23_169
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 170
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_31_170
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 171
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_32_171
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 172
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,RunningHuman5_33_172
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 173
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_11_173
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 174
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_12_174
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 175
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_13_175
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 176
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_14_176
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 177
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_21_177
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 178
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_22_178
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 179
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_23_179
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 180
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_24_180
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 181
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_11_181
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 182
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_12_182
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 183
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_13_183
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 184
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_14_184
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 185
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_21_185
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 186
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_22_186
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 187
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_23_187
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 188
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1b_24_188
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 189
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Missile_189
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 190
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Missile_190
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 191
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_11_191
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 192
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_12_192
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 193
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_13_193
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 194
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_21_194
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 195
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_22_195
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 196
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_23_196
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 197
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_14_197
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 198
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,HumanShip_24_198
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 199
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderTopLeft_199
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 200
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderVertical_200
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 201
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderHorizontal_201
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 202
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderTopRight_202
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 203
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderBottomLeft_203
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 204
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,BorderBottomRight_204
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 205
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman11_205
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 206
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman12_206
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 207
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman13_207
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 208
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman21_208
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 209
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman22_209
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 210
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman23_210
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 211
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman31_211
-	add hl, bc
-	call LoadCharacterDefinition
-	
-	ld h, 212
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman32_212
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 213
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,StaticHuman33_213
-	add hl, bc
-	call LoadCharacterDefinition
-
-
-
-
-	ld h, 214
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_11_214
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 215
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip1a_12_215
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 216
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_13_216
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 217
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_14_217
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 218
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_21_218
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 219
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_22_219
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 220
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_23_220
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 221
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2a_24_221
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 222
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_11_222
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 223
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_12_223
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 224
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_13_224
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 225
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_14_225
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 226
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_21_226
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 227
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_22_227
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 228
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_23_228
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 229
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip2b_24_229
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 230
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_11_230
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 231
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_12_231
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 232
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_13_232
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 233
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_14_233
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 234
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_21_234
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 235
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_22_235
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 236
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_23_236
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 237
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3a_24_237
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 238
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_11_238
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 239
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_12_239
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 240
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_13_240
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 241
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_14_241
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 242
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_21_242
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 243
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_22_243
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 244
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_23_244
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 245
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,MartianShip3b_24_245
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 246
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_11_246
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 247
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_12_247
-	add hl, bc
-	call LoadCharacterDefinition
-
-
-	ld h, 248
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_13_248
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 249
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_21_249
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 250
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_22_250
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 251
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Explosion_23_251
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 91
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Missile_189
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ld h, 93
-	ld e, 8
-	call Mult8
-	pop bc
-	push bc
-	ld de,Missile_190
-	add hl, bc
-	call LoadCharacterDefinition
-
-	ret
-LoadCharacterDefinition:
-	ld b,8        
-	ld c,1       
-	call RedefineVramCharacter
-	ret
-RedefineVramCharacter:
-
-	ld   a,(de)    ; Loads into A the current value pointed by DE
-    call WRTVRM    ; Calls the BIOS routine that loads the value from A into the VRAM at the position HL
-    inc  de        ; Increments DE to fetch the next value from LetterA
-    inc  hl        ; Increments HL to set the next position at the VRAM
-    djnz RedefineVramCharacter    ; The djnz command decrements the value of B and compares to to 0, jumping to PrintLoop if the result is false
-    ret
-
-; *** CHARACTERS DATA ***
-	db 00000000b
-	db 00000000b
-	db 00000000b
-	db 00000000b
-	db 00000000b
-	db 11110000b
-	db 11110000b
-	db 11110000b
+; --- CONSTANTS ---
+HUMAN_SHIP_HIDE_TIME:	equ 500				; Human ship base hide duration
+WAR_FIELD_MATRIX_SIZE:  equ 12960			; War field matrix RAM size
+CHAR_MAP_BLOCK_LEN:		equ 992			    ; Char map bytes block length to copy into VRAM
+CHAR_SPACE:				equ 32				; Space character
+CHAR_BOTTOM_LEFT:		equ 203				; Bottom left border char
+CHAR_HORIZONTAL:  		equ 201				; Horizontal border char
+CHAR_VERTICAL:    		equ 200				; Vertical border char
+CHAR_TOP_RIGHT:    		equ 202				; Top right border char
+CHAR_TOP_LEFT:     		equ 199				; Top left border char
+CHAR_BOTTOM_RIGHT: 		equ 204				; Bottom right border char
+CHAR_EMPTY:				equ 252				; Empty char
+CHAR_STATIC_HUMAN:		equ 205				; First static human character
+CHAR_HUMAN_SHIP:		equ 191				; First human ship character
+CHAR_BOMB:				equ 189				; First human ship character
+CHAR_MARTIAN_SHIP_1_A:	equ 173				; First martian ship nr. 1a character
+CHAR_MARTIAN_SHIP_2_A:	equ 214				; First martian ship nr. 2a character
+CHAR_MARTIAN_SHIP_3_A:	equ 230				; First martian ship nr. 3a character
+CHAR_MARTIAN_SHIP_1_B:	equ 181				; First martian ship nr. 1b character
+CHAR_MARTIAN_SHIP_2_B:	equ 222				; First martian ship nr. 2b character
+CHAR_MARTIAN_SHIP_3_B:	equ 238				; First martian ship nr. 3b character
+CHAR_EXPLOSION:			equ 246				; First Explosion character
+BOOTAD:					equ	#0C000			; Where boot sector is executed
+BOTTOM:					equ	#0FC48			; Pointer to bottom of RAM
+HIMEM:					equ	#0FC4A			; Top address of RAM which can be used
+MEMSIZ:					equ	#0F672			; Pointer to end of string space
+STKTOP:					equ	#0F674			; Pointer to bottom of stack
+SAVSTK:					equ	#0F6B1			; Pointer to valid stack bottom
+MAXFIL:					equ	#0F85F			; Maximum file number
+FILTAB:					equ	#0F860			; Pointer to file pointer table
+NULBUF:					equ	#0F862			; Pointer to buffer #0
+
+TXT_MARTIAN_WAR: 		db 'MARTIAN WAR',0
+TXT_PRES_1: 			db 'There is one weapon remaining on Earth.',0
+TXT_KEYS:				db 'This weapon is controlled with the following keys:',0
+TXT_KEY_4:				db '4  - Move to left',0
+TXT_KEY_5:				db '5  - Stop',0
+TXT_KEY_6:				db '6  - Move to right',0
+TXT_KEY_8:				db '8  - Fire a missile',0
+TXT_PRES_2:				db 'There will be martian spaceships flying all over the place and dropping',0
+TXT_PRES_3:				db 'bombs down on you and the human population.',0
+TXT_PRES_4:				db 'Your mission is quite simple. There are a limited number of martian',0
+TXT_PRES_5:				db 'ships and if you destroy all of them before they destroy the whole',0
+TXT_PRES_6:				db 'population of Earth then you win.',0
+TXT_PRES_7:				db 'If your weapon is hit it will have to be repaired and the refore',0
+TXT_PRES_8:				db 'will be unusable for a period of time.',0
+TXT_PRES_9:				db 'HIT \'RETURN\' TO CONTINUE',0
+TXT_LEVELS:				db 'WHAT LEVEL OF PLAY WOULD YOU LIKE (1 - 3) ? _',0
+TXT_LEVEL_1:			db '1  -  Beginner',0
+TXT_LEVEL_2:			db '2  -  Intermediate',0
+TXT_LEVEL_3:			db '3  -  Advanced',0
+TXT_SOUNDS:   			db 'IF YOU WANT SOUND EFFECTS THEN TYPE \'Y\' ELSE TYPE \'N\'',0
+TXT_HUMANS:				db 'Humans   - ',0
+TXT_MARTIANS:			db 'Martians - ',0
+TXT_LOSE_1:				db 'SORRY GUY',0
+TXT_LOSE_2:				db 'THE MARTIANS HAVE SUCCESSFULLY DESTROYED ALL LIFE ON EARTH!',0
+TXT_PLAY_AGAIN:		  	db 'HIT \'RETURN\' TO PLAY AGAIN',0
+TXT_WIN_1: 				db 'CONGRATULATIONS',0
+TXT_WIN_2: 			  	db 'YOU HAVE SAVED EARTH FROM THE MARTIAN ATTACK!!',0
+TXT_RAM:				db 'RAM memory allocation error',0
+TXT_MSX1:				db 'THIS GAME IS FOR MSX 2 SYSTEMS ONLY',0
+; --- CHAR MAP DEFINITIONS ----
 RunningHuman1_11_128:
 	db 00000100b
 	db 00000100b
@@ -5604,17 +3657,16 @@ MartianShip1b_24_188:
 	db 00000000b
 	db 00000000b
 	db 00000000b
-
-Missile_189:
+Bomb_189:
 	db 00000000b
-	db 00001111b
-	db 00001111b
-	db 00001111b
-	db 00001111b
-	db 00001111b
-	db 00001111b
+	db 00001100b
+	db 00001100b
+	db 00001100b
+	db 00001100b
+	db 00001100b
+	db 00001100b
 	db 00000000b
-Missile_190:
+Bomb_190:
 	db 00000000b
 	db 11000000b
 	db 11000000b
@@ -5650,7 +3702,16 @@ HumanShip_13_193:
 	db 11111000b
 	db 11111000b
 	db 11111000b
-HumanShip_21_194:
+HumanShip_14_194:
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+HumanShip_21_195:
 	db 11111111b
 	db 11111111b
 	db 11111111b
@@ -5659,7 +3720,7 @@ HumanShip_21_194:
 	db 00000000b
 	db 00000000b
 	db 00000000b
-HumanShip_22_195:
+HumanShip_22_196:
 	db 11111111b
 	db 11111111b
 	db 11111111b
@@ -5668,19 +3729,10 @@ HumanShip_22_195:
 	db 00000000b
 	db 00000000b
 	db 00000000b
-HumanShip_23_196:
+HumanShip_23_197:
 	db 11111111b
 	db 11111111b
 	db 11111111b
-	db 00000000b
-	db 00000000b
-	db 00000000b
-	db 00000000b
-	db 00000000b
-HumanShip_14_197:
-	db 00000000b
-	db 00000000b
-	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
@@ -5755,81 +3807,81 @@ StaticHuman11_205:
 	db 00000000b
 	db 00000000b
 	db 00000000b
-	db 01111111b
-	db 01111111b
-	db 01111111b
+	db 01111100b
+	db 01111100b
+	db 01111100b
 StaticHuman12_206:
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 11111111b
-	db 11111111b
-	db 11111111b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
 StaticHuman13_207:
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
-	db 11111110b
-	db 11111110b
-	db 11111110b
+	db 11111000b
+	db 11111000b
+	db 11111000b
 StaticHuman21_208:
-	db 01111000b
-	db 01111000b
-	db 01111000b
-	db 01111000b
-	db 01111000b
-	db 01111000b
-	db 00000000b
-	db 00000000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
+	db 01110000b
 StaticHuman22_209:
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111111b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
 StaticHuman23_210:
-	db 00111110b
-	db 00111110b
-	db 00111110b
-	db 00111110b
-	db 00111110b
-	db 00111110b
-	db 00000000b
-	db 00000000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
+	db 00111000b
 StaticHuman31_211:
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
-	db 00011111b
-	db 00011111b
-	db 00011111b
+	db 00011100b
+	db 00011100b
+	db 00011100b
 StaticHuman32_212:
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 01111110b
-	db 11111111b
-	db 11111111b
-	db 11111111b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
+	db 11111100b
 StaticHuman33_213:
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
 	db 00000000b
-	db 11110000b
-	db 11110000b
-	db 11110000b
+	db 11100000b
+	db 11100000b
+	db 11100000b
 MartianShip2a_11_214:
 	db 00000000b
 	db 00000000b
@@ -6123,17 +4175,17 @@ Explosion_11_246:
 	db 11110000b
 	db 11110000b
 	db 11110000b
-	db 00000011b
-	db 00000011b
-	db 00000011b
-	db 00000011b
+	db 00000000b
+	db 00000000b
+	db 00000000b
+	db 00000000b
 Explosion_12_247:
 	db 00000000b
 	db 00000000b
-	db 00000011b
-	db 00000011b
-	db 11000011b
-	db 11000011b
+	db 00000000b
+	db 00000000b
+	db 11000000b
+	db 11000000b
 	db 11000000b
 	db 11000000b
 Explosion_13_248:
@@ -6159,10 +4211,10 @@ Explosion_22_250:
 	db 00000000b
 	db 00000000b
 	db 00000000b
-	db 00001111b
-	db 00001111b
-	db 00001111b
-	db 00001111b
+	db 00001100b
+	db 00001100b
+	db 00001100b
+	db 00001100b
 Explosion_23_251:
 	db 11000000b
 	db 11000000b
@@ -6172,89 +4224,34 @@ Explosion_23_251:
 	db 00111100b
 	db 00111100b
 	db 00111100b
+; --- ROM 16KB ---
+    ds #8000 - $  										; Fill the rest of the ROM (up to 16KB with 0s)
 
-	db 11001100b
-	db 01100110b
-	db 10011001b
-	db 11001100b
-	db 00110000b
-	db 00000011b
-	db 00001100b
-	db 11001111b
-; *** MESSAGES ***
-Msg_MartianWar: 	db 'MARTIAN WAR',0
-Msg_OnlyOneWapon: 	db 'There is one weapon remaining on Earth.',0
-Msg_Keys:			db 'This weapon is controlled with the following keys:',0
-Msg_Key4:			db '4  - Move to left',0
-Msg_Key5:			db '5  - Stop',0
-Msg_Key6:			db '6  - Move to right',0
-Msg_Key8:			db '8  - Fire a missile',0
-Msg_Ships:			db 'There will be martian spaceships flying all over the place and dropping',0
-Msg_Bombs:			db 'bombs down on you and the human population.',0
-Msg_Mission:		db 'Your mission is quite simple. There are a limited number of martian',0
-Msg_Destroy:		db 'ships and if you destroy all of them before they destroy the whole',0
-Msg_Population:		db 'population of Earth then you win.',0
-Msg_Repaired:		db 'If your weapon is hit it will have to be repaired and the refore',0
-Msg_Unusable:		db 'will be unusable for a period of time.',0
-Msg_Enter:			db 'HIT \'RETURN\' TO CONTINUE',0
-Msg_Levels:			db 'WHAT LEVEL OF PLAY WOULD YOU LIKE (1 - 3) ? _',0
-Msg_Level1:			db '1  -  Beginner',0
-Msg_Level2:			db '2  -  Intermediate',0
-Msg_Level3:			db '3  -  Advanced',0
-Msg_SoundEffects:   db 'IF YOU WANT SOUND EFFECTS THEN TYPE \'Y\' ELSE TYPE \'N\'',0
-Msg_Humans:			db 'Humans   - ',0
-Msg_Martians:		db 'Martians - ',0
-Msg_Sorry:			db 'SORRY GUY',0
-Msg_Martians_Win:	db 'THE MARTIANS HAVE SUCCESSFULLY DESTROYED ALL LIFE ON EARTH!',0
-Msg_HintPlayAgain:  db 'HIT \'RETURN\' TO PLAY AGAIN',0
-Msg_Congratulation: db 'CONGRATULATIONS',0
-Msg_YouHaveSaved:   db 'YOU HAVE SAVED EARTH FROM THE MARTIAN ATTACK!!',0
+; --- RAM ---
+    org #0c000  										; RAM address
 
+; --- VARIABLES ---
+BOMB_COUNTER:			db 0							; Bomb counter for looping
+HUMAN_EXPLOSION_FLAG:	db 0							; Flag for detect static human explosion
+RANDOM_SEED:			db 0							; Random generation seed
+VBLANK_FLAG:			db 0							; vBlankFlag
+SELECTED_LEVEL:			db 0							; Selected level 
+SOUND_EFFECTS:			db 0							; Sounds effects yes (1) or no (0)
+HUMANS_COUNTER:			db 0							; Martians counter
+MARTIANS_COUNTER:		db 0							; Martians counter
+MARTIAN_BOMBS:											; 100 X positions, 100 Y positions, speed, speed counter
+	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  
+	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+HUMAN_SHIP_INFO:										; visible,position,direction (0=none - 1=right - 2=left),can fire,movement speed waiting,speed,bomb pos X,bomb Y pos, hidden time left
+	.byte 0, 0, 0, 0, 0, 0, 0, 0
+	.word 0
+MARTIANS_SHIPS_INFO:									; Bomb frequency ratio, number of displayd ships, XPos1, Xpos2, XPos3, XPos4, YPos1, YPos2, YPos3, YPos4, Direction 1, Direction 2, Direction 3, Direction 4, Direction changed 1, Direction changed 2, Direction changed 3, Direction changed 4, Type 1, Type 2, Type 3, Type 4, Refreshing ship, Ship speed timer, Ship speed timer counter
+	.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+RUNNING_HUMANS_INFO:									; Remaining to show, last position from right, last position from left, current position, current image
+	.byte 0, 0, 0, 0, 0
+LOOP_COUNTER:			db 0							; Generic counter used into loops
+MARTIAN_BOMB_COLLISIONS_CHECK:							; Martian bomb collision check: martian X screen point, martian Y screen point, 
+	.word 0, 0
+HUMANS_POSITIONS:										; Static humans X position
+	.byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-
-
-
-; *** ROM 16KB ***
-    ds 8000h - $  ; fill the rest of the ROM (up to 16KB with 0s)
-
-; *** RAM ***
-    org 0c000h  
-; *** VARIABLES ***
-CounterFromRight:					db 0
-CounterFromLeft:					db 0
-RunningHumanFromRightCurrentImage:	db 0
-RunningHumanFromLeftCurrentImage:	db 0
-HumanRunningCounter:				db 0
-RunningHumanFromRightStopPosition:	db 0
-RunningHumanFromLeftStopPosition:	db 0
-SelectedLevel:						db 0
-SoundYN:							db 0
-Counter:							db 0
-Humans:								db 0
-Martians:							db 0
-HumanShipMovingDirection:			db 0
-HumanShipCurrentPosition:			db 0
-MissilesRefreshPositionTime:		db 0
-RandData:							defw 0
-FiredMissilesPositions:				ds 64
-MissilesPosX:       				db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  
-MissilesPosY:      					db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-MartiansShipsPositionX:				db 0,0,0,0
-MartiansShipsPositionY:				db 0,0,0,0
-MartiansShipsDirection:				db 0,0,0,0
-MartiansShipType:					db 0,0,0,0
-RndSeed:							db 0
-MartiansDirectionChanged:			db 0,0,0,0
-MartiansShipsSpeed					db 0 
-MartiansMissilesRatio				db 0
-MartianMissilesPosX:       			db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  
-MartianMissilesPosY:      			db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-MartiansMissilesSpeed				db 0 
-MartianMissileCollisionSecCharacter	db 0
-HumanShipVisible					db 0
-HumanShipStopTime					dw 0
-HumanShipStopTimeCicle:				db 0
-MartianShipToRemoveX				db 0
-MartianShipToRemoveY				db 0
-HumanExplosionFlag					db 0
-HumanMissileArrayPosition			db 0
