@@ -1,6 +1,6 @@
-; ***************************
-; ****** MARTIAN WAR 2 ******
-; ***************************
+; *************************
+; ****** MARTIAN WAR ******
+; *************************
 ;
 ;     ------------------
 ;     Fausto Pracek 2023
@@ -867,6 +867,10 @@ setup_timerhook:
 
 ; --- MAIN LOOP ---
 main_loop:
+	ld		hl, HUMAN_SHIP_INFO
+	ld		a,(hl)									; Get human ship visible status
+	cp		0
+	jp		z, main_loop_after_keys					; If human ship is not visible the keys reading is not enabled
 	ld		a,(KEYS+8)								
 	bit		0,a				
 	call	z, start_human_ship_fire				; key 'SPACE' pressed
@@ -892,6 +896,7 @@ main_loop:
 	bit		5,a
 	call	z, stop_human_ship_movement				; Key '5' pressed
 
+main_loop_after_keys:
 	ld		hl,	HUMANS_COUNTER
 	ld  	a, (hl)									; Get humans counter
 	cp		0
@@ -2625,7 +2630,7 @@ start_human_ship_move_left:
 	ld		hl, HUMAN_SHIP_INFO
 	ld		a,(hl)
 	cp		0
-	jp		z, main_loop							; Human ship not visible: return to main loop
+	ret		z										; Human ship not visible: return to main loop
 	ld		hl, HUMAN_SHIP_INFO+2					; Set human ship movement direction
 	ld		(hl), 2
 	ret												; Return to main loop
@@ -2633,7 +2638,7 @@ start_human_ship_move_right:
 	ld		hl, HUMAN_SHIP_INFO
 	ld		a,(hl)
 	cp		0
-	jp		z, main_loop							; Human ship not visible: return to main loop
+	ret		z										; Human ship not visible: return to main loop
 	ld		hl, HUMAN_SHIP_INFO+2					; Set human ship movement direction
 	ld		(hl), 1
 	ret												; Return to main loop
@@ -3081,10 +3086,10 @@ NULBUF:					equ	#0F862			; Pointer to buffer #0
 TXT_MARTIAN_WAR: 		db 'MARTIAN WAR',0
 TXT_PRES_1: 			db 'There is one weapon remaining on Earth.',0
 TXT_KEYS:				db 'This weapon is controlled with the following keys:',0
-TXT_KEY_4:				db '4  - Move to left',0
-TXT_KEY_5:				db '5  - Stop',0
-TXT_KEY_6:				db '6  - Move to right',0
-TXT_KEY_8:				db '8  - Fire a missile',0
+TXT_KEY_4:				db '4/Left arrow  - Move to left',0
+TXT_KEY_5:				db '5/Up arrow    - Stop',0
+TXT_KEY_6:				db '6/Right arrow - Move to right',0
+TXT_KEY_8:				db '8/Space       - Fire a missile',0
 TXT_PRES_2:				db 'There will be martian spaceships flying all over the place and dropping',0
 TXT_PRES_3:				db 'bombs down on you and the human population.',0
 TXT_PRES_4:				db 'Your mission is quite simple. There are a limited number of martian',0
